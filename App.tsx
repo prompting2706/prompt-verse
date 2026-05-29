@@ -1724,9 +1724,15 @@ const App: React.FC = () => {
 
   if (!isAuthenticated) {
     if (view.type === 'register') {
-      return <Register onRegister={handleRegister} onNavigate={navigate} />;
+      return <><Register onRegister={handleRegister} onNavigate={navigate} /><ToastContainer /></>;
     }
-    return <Login onLogin={handleLogin} onNavigate={navigate} />;
+    if (view.type === 'privacy') {
+      return <><PrivacyPage onBack={() => navigate({ type: 'login', payload: null })} /><ToastContainer /></>;
+    }
+    if (view.type === 'terms') {
+      return <><TermsPage onBack={() => navigate({ type: 'login', payload: null })} /><ToastContainer /></>;
+    }
+    return <><Login onLogin={handleLogin} onNavigate={navigate} /><ToastContainer /></>;
   }
 
   // If authenticated, but on login/register page, redirect is happening via useEffect.
