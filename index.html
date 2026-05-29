@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptVerse - Prompt Management & Marketplace</title>
+    <meta name="description" content="PromptVerse — organize, share, and sell your AI prompts. Discover thousands of prompts for ChatGPT, Midjourney, and more on the leading prompt marketplace." />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="PromptVerse - Prompt Management & Marketplace" />
+    <meta property="og:description" content="Organize, share, and sell your AI prompts. Discover thousands of prompts for ChatGPT, Midjourney, and more." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PromptVerse - Prompt Management & Marketplace" />
+    <meta name="twitter:description" content="Organize, share, and sell your AI prompts. The leading marketplace for AI prompt creators." />
+    <meta name="twitter:image" content="/og-image.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                orange: '#F97316',
+                green: '#10B981',
+                'light-gray': '#F3F4F6',
+                'medium-gray': '#9CA3AF',
+                'dark-gray': '#374151',
+              },
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.15.0",
+    "react/": "https://esm.sh/react@^18.2.0/",
+    "react": "https://esm.sh/react@^18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@^18.2.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
