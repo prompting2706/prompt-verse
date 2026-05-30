@@ -6,6 +6,7 @@ import { UsersIcon, PlusIcon } from './icons/Icons';
 import CreatePostModal, { type PostData } from './CreatePostModal';
 import VerifiedBadge from './VerifiedBadge';
 import AvatarCropModal from './AvatarCropModal';
+import PostAnalyticsView from './PostAnalyticsView';
 
 interface ProfilePageProps {
     profileUser: User;
@@ -27,6 +28,7 @@ interface ProfilePageProps {
 const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, posts, onFollowUser, onLikePost, onAddComment, onFavoritePost, onNavigate, onCreatePost, onMessageUser, onRequestVerification, onDeletePost, onEditPost, onUpdateAvatar }) => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [showAvatarCrop, setShowAvatarCrop] = useState(false);
+    const [activeTab, setActiveTab] = useState<'posts' | 'analytics'>('posts');
     
     const userPosts = posts.filter(p => p.authorId === profileUser.id)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -123,11 +125,26 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
                 </div>
             </div>
 
-            {/* Posts */}
+            {/* Posts / Analytics tabs */}
             <div>
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold">Posts</h2>
-                    {isOwnProfile && (
+                    <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                        <button
+                            onClick={() => setActiveTab('posts')}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === 'posts' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Gönderiler
+                        </button>
+                        {isOwnProfile && (
+                            <button
+                                onClick={() => setActiveTab('analytics')}
+                                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === 'analytics' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                📊 Analitik
+                            </button>
+                        )}
+                    </div>
+                    {isOwnProfile && activeTab === 'posts' && (
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
                             className="flex items-center gap-2 bg-brand-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-sm"
@@ -137,6 +154,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
                         </button>
                     )}
                 </div>
+
+                {activeTab === 'analytics' && isOwnProfile && (
+                    <PostAnalyticsView posts={userPosts} />
+                )}
+
+                {activeTab === 'posts' && (
                  <div className="max-w-2xl mx-auto space-y-8">
                     {userPosts.length > 0 ? (
                         userPosts.map(post => (
@@ -161,6 +184,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
                         </div>
                     )}
                 </div>
+                )}
             </div>
             
             <CreatePostModal
