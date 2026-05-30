@@ -95,6 +95,8 @@ const App: React.FC = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [promptToEdit, setPromptToEdit] = useState<Prompt | undefined>(undefined);
+  const [promptToDeleteId, setPromptToDeleteId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [promptToShare, setPromptToShare] = useState<Prompt | null>(null);
   const [promptToShareViaMessage, setPromptToShareViaMessage] = useState<Prompt | null>(null);
   const [projectToShare, setProjectToShare] = useState<Project | null>(null);
@@ -193,6 +195,10 @@ const App: React.FC = () => {
         } else {
           setView({ type: 'notFound', payload: null });
         }
+      } else if (hash === 'prompts') {
+        setView({ type: 'dashboard', payload: null });
+      } else if (hash === 'projects') {
+        setView({ type: 'dashboard', payload: null });
       } else {
         // Unknown hash route => show 404
         setView({ type: 'notFound', payload: null });
@@ -730,7 +736,14 @@ const App: React.FC = () => {
     setPromptToEdit(undefined);
   };
 
-  const handleDeletePrompt = async (promptId: string) => {
+  const handleDeletePrompt = (promptId: string) => {
+    setPromptToDeleteId(promptId);
+  };
+
+  const handleConfirmDeletePrompt = async () => {
+    if (!promptToDeleteId) return;
+    const promptId = promptToDeleteId;
+    setPromptToDeleteId(null);
     const wasArchived = archivedPrompts.some(p => p.id === promptId);
     try {
       await promptService.delete(promptId);
@@ -1760,8 +1773,20 @@ const App: React.FC = () => {
         onShareProject={handleOpenShareProjectModal}
         onLogout={handleLogout}
         activeProfileUserId={view.type === 'profile' ? view.payload?.userId : undefined}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
-      <main className="flex-1 p-8 overflow-y-auto relative">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto relative">
+        {/* Hamburger button — mobile only */}
+        <button
+          className="md:hidden absolute top-4 left-4 z-30 p-2 bg-white rounded-lg shadow-md"
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Open menu"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
         <div className="absolute top-6 right-8 z-50">
            <button 
               onClick={() => setShowNotifications(!showNotifications)}
@@ -1840,15 +1865,37 @@ const App: React.FC = () => {
         </div>
         {renderView()}
       </main>
-      <CreatePromptModal 
-        isOpen={isModalOpen} 
-        onClose={handleCloseModal} 
+      <CreatePromptModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
         onSave={handleSavePrompt}
         projects={projects}
         promptToEdit={promptToEdit}
         currentUser={user}
         allPrompts={[...prompts, ...archivedPrompts, ...MOCK_SYSTEM_PROMPTS]}
       />
+      {promptToDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Prompt'u Sil</h3>
+            <p className="text-gray-600 text-sm mb-6">Bu prompt kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setPromptToDeleteId(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => void handleConfirmDeletePrompt()}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Sil
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {promptToShare && (
         <SharePromptModal
           isOpen={!!promptToShare}

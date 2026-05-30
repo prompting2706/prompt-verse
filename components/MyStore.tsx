@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { type User, type MarketplaceItem, type View, type Prompt, type Campaign } from '../types';
-import { StoreIcon, EyeIcon, DollarSignIcon, ShoppingCartIcon, TrashIcon, PlusIcon, EditIcon, SearchIcon, SortIcon, StarIcon as SolidStarIcon, RocketLaunchIcon, ChartBarIcon, PackageIcon } from './icons/Icons';
+import { StoreIcon, EyeIcon, DollarSignIcon, ShoppingCartIcon, TrashIcon, PlusIcon, EditIcon, SearchIcon, SortIcon, StarIcon as SolidStarIcon, RocketLaunchIcon, ChartBarIcon, PackageIcon, ArrowUpIcon } from './icons/Icons';
 import VerifiedBadge from './VerifiedBadge';
 import { PLAN_LIMITS } from '../constants';
 import { toast } from '../utils/toast';
@@ -44,10 +44,11 @@ const MyStore: React.FC<MyStoreProps> = ({ user, items, prompts, campaigns, onDe
         }
     }, [initialTab]);
 
+    const canSell = PLAN_LIMITS[user.membership].canSell;
+
     const handleOpenAddModal = () => {
-        if (!PLAN_LIMITS[user.membership].canSell) {
+        if (!canSell) {
             toast.warning('Satış yapabilmek için Pro veya Team planına geçmeniz gerekmektedir.');
-            onNavigate({ type: 'upgrade', payload: null });
             return;
         }
         setModalState({ isOpen: true, itemToEdit: undefined });
@@ -88,13 +89,32 @@ const MyStore: React.FC<MyStoreProps> = ({ user, items, prompts, campaigns, onDe
                         <PackageIcon className="w-4 h-4" />
                         Paket Oluştur
                     </button>
-                    <button
-                        onClick={handleOpenAddModal}
-                        className="flex items-center gap-2 bg-brand-green text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-sm"
-                    >
-                        <PlusIcon className="w-4 h-4" />
-                        Add Product
-                    </button>
+                    <div className="relative group">
+                        <button
+                            onClick={handleOpenAddModal}
+                            disabled={!canSell}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors shadow-sm ${
+                                canSell
+                                    ? 'bg-brand-green text-white hover:bg-green-600'
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            }`}
+                        >
+                            <PlusIcon className="w-4 h-4" />
+                            Add Product
+                            {!canSell && <span className="text-xs bg-orange-100 text-brand-orange font-semibold px-1.5 py-0.5 rounded-full ml-1">Pro</span>}
+                        </button>
+                        {!canSell && (
+                            <div className="absolute right-0 top-full mt-1 w-52 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 hidden group-hover:block z-10 shadow-lg">
+                                Pro veya Team planına geçerek ürün satabilirsiniz.{' '}
+                                <button
+                                    onClick={() => onNavigate({ type: 'upgrade', payload: null })}
+                                    className="underline text-orange-300 hover:text-orange-200"
+                                >
+                                    Planı yükselt
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
             
@@ -127,13 +147,23 @@ const MyStore: React.FC<MyStoreProps> = ({ user, items, prompts, campaigns, onDe
                     <StoreIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                     <h2 className="text-xl font-semibold text-gray-700">Your Store is Empty</h2>
                     <p className="text-gray-500 mt-2 mb-6">You haven't listed any items for sale yet. Start selling to see your products here!</p>
-                    <button
-                        onClick={handleOpenAddModal}
-                        className="flex items-center gap-2 mx-auto bg-brand-green text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-sm"
-                    >
-                        <PlusIcon className="w-5 h-5" />
-                        Add Your First Product
-                    </button>
+                    {canSell ? (
+                        <button
+                            onClick={handleOpenAddModal}
+                            className="flex items-center gap-2 mx-auto bg-brand-green text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-sm"
+                        >
+                            <PlusIcon className="w-5 h-5" />
+                            Add Your First Product
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => onNavigate({ type: 'upgrade', payload: null })}
+                            className="flex items-center gap-2 mx-auto bg-brand-orange text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-orange-600 transition-colors shadow-sm"
+                        >
+                            <ArrowUpIcon className="w-5 h-5" />
+                            Pro'ya Geç — Satış Başlat
+                        </button>
+                    )}
                 </div>
             ) : (
                 <div>

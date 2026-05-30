@@ -21,6 +21,8 @@ interface SidebarProps {
   pendingCommissionsCount?: number;
   onLogout: () => void;
   activeProfileUserId?: string;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 interface ContextMenuState {
@@ -30,7 +32,7 @@ interface ContextMenuState {
   project: Project | null;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ user, projects, activeView, onNavigate, onCreateProject, onUpdateProject, onDeleteProject, onSelectProject, onShareProject, selectedProjectId, cartItemCount, pendingCommissionsCount, onLogout, activeProfileUserId }) => {
+const Sidebar: React.FC<SidebarProps> = ({ user, projects, activeView, onNavigate, onCreateProject, onUpdateProject, onDeleteProject, onSelectProject, onShareProject, selectedProjectId, cartItemCount, pendingCommissionsCount, onLogout, activeProfileUserId, isOpen = false, onClose }) => {
   const { t, i18n } = useTranslation();
   const [newProjectName, setNewProjectName] = useState('');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -116,8 +118,26 @@ const Sidebar: React.FC<SidebarProps> = ({ user, projects, activeView, onNavigat
   };
 
 
+  const handleNavigate = (view: View) => {
+    onNavigate(view);
+    onClose?.();
+  };
+
   return (
-    <aside className="w-64 bg-white p-6 flex flex-col h-screen border-r border-gray-200 sticky top-0">
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={onClose}
+        />
+      )}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white p-6 flex flex-col h-screen border-r border-gray-200
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:relative md:translate-x-0 md:z-auto md:transition-none md:sticky md:top-0
+      `}>
       <div className="flex items-center gap-3 mb-8">
         <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full" />
         <div>
@@ -138,19 +158,19 @@ const Sidebar: React.FC<SidebarProps> = ({ user, projects, activeView, onNavigat
         <div className="overflow-y-auto -mr-4 pr-4">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('nav.general')}</h3>
           <ul>
-            <NavItem icon={<HomeIcon />} label={t('nav.myPrompts')} isActive={activeView === 'dashboard' && !selectedProjectId} onClick={() => onNavigate({ type: 'dashboard', payload: null })} />
-            <NavItem icon={<ExploreIcon />} label={t('nav.explore')} isActive={activeView === 'explore'} onClick={() => onNavigate({ type: 'explore', payload: null })} />
-            <NavItem icon={<UserIcon />} label={t('nav.myProfile')} isActive={activeView === 'profile' && activeProfileUserId === user.id} onClick={() => onNavigate({ type: 'profile', payload: { userId: user.id } })} />
-            <NavItem icon={<ChatBubbleIcon />} label={t('nav.messages')} isActive={activeView === 'messages'} onClick={() => onNavigate({ type: 'messages', payload: null })} />
-            <NavItem icon={<BookmarkIcon />} label={t('nav.favorites')} isActive={activeView === 'favorites'} onClick={() => onNavigate({ type: 'favorites', payload: null })} />
-            <NavItem icon={<MarketplaceIcon />} label={t('nav.marketplace')} isActive={activeView === 'marketplace'} onClick={() => onNavigate({ type: 'marketplace', payload: null })} />
-            <NavItem icon={<StoreIcon />} label={t('nav.myStore')} isActive={activeView === 'myStore'} onClick={() => onNavigate({ type: 'myStore', payload: null })} />
-            <NavItem icon={<CartIcon />} label={t('nav.myCart')} isActive={activeView === 'cart'} onClick={() => onNavigate({ type: 'cart', payload: null })} badgeCount={cartItemCount} />
-            <NavItem icon={<OrdersIcon />} label={t('nav.myOrders')} isActive={activeView === 'orders'} onClick={() => onNavigate({ type: 'orders', payload: null })} />
-            <NavItem icon={<ArchiveIcon />} label={t('nav.archived')} isActive={activeView === 'archived'} onClick={() => onNavigate({ type: 'archived', payload: null })} />
-            <NavItem icon={<ArrowUpIcon />} label={t('nav.upgrade')} isActive={activeView === 'upgrade'} onClick={() => onNavigate({ type: 'upgrade', payload: null })} />
-            <NavItem icon={<GiftIcon />} label={t('nav.referral')} isActive={activeView === 'referral'} onClick={() => onNavigate({ type: 'referral', payload: null })} highlight />
-            <NavItem icon={<ClipboardListIcon />} label={t('nav.commissions')} isActive={activeView === 'commissions'} onClick={() => onNavigate({ type: 'commissions', payload: null })} badgeCount={pendingCommissionsCount} />
+            <NavItem icon={<HomeIcon />} label={t('nav.myPrompts')} isActive={activeView === 'dashboard' && !selectedProjectId} onClick={() => handleNavigate({ type: 'dashboard', payload: null })} />
+            <NavItem icon={<ExploreIcon />} label={t('nav.explore')} isActive={activeView === 'explore'} onClick={() => handleNavigate({ type: 'explore', payload: null })} />
+            <NavItem icon={<UserIcon />} label={t('nav.myProfile')} isActive={activeView === 'profile' && activeProfileUserId === user.id} onClick={() => handleNavigate({ type: 'profile', payload: { userId: user.id } })} />
+            <NavItem icon={<ChatBubbleIcon />} label={t('nav.messages')} isActive={activeView === 'messages'} onClick={() => handleNavigate({ type: 'messages', payload: null })} />
+            <NavItem icon={<BookmarkIcon />} label={t('nav.favorites')} isActive={activeView === 'favorites'} onClick={() => handleNavigate({ type: 'favorites', payload: null })} />
+            <NavItem icon={<MarketplaceIcon />} label={t('nav.marketplace')} isActive={activeView === 'marketplace'} onClick={() => handleNavigate({ type: 'marketplace', payload: null })} />
+            <NavItem icon={<StoreIcon />} label={t('nav.myStore')} isActive={activeView === 'myStore'} onClick={() => handleNavigate({ type: 'myStore', payload: null })} />
+            <NavItem icon={<CartIcon />} label={t('nav.myCart')} isActive={activeView === 'cart'} onClick={() => handleNavigate({ type: 'cart', payload: null })} badgeCount={cartItemCount} />
+            <NavItem icon={<OrdersIcon />} label={t('nav.myOrders')} isActive={activeView === 'orders'} onClick={() => handleNavigate({ type: 'orders', payload: null })} />
+            <NavItem icon={<ArchiveIcon />} label={t('nav.archived')} isActive={activeView === 'archived'} onClick={() => handleNavigate({ type: 'archived', payload: null })} />
+            <NavItem icon={<ArrowUpIcon />} label={t('nav.upgrade')} isActive={activeView === 'upgrade'} onClick={() => handleNavigate({ type: 'upgrade', payload: null })} />
+            <NavItem icon={<GiftIcon />} label={t('nav.referral')} isActive={activeView === 'referral'} onClick={() => handleNavigate({ type: 'referral', payload: null })} highlight />
+            <NavItem icon={<ClipboardListIcon />} label={t('nav.commissions')} isActive={activeView === 'commissions'} onClick={() => handleNavigate({ type: 'commissions', payload: null })} badgeCount={pendingCommissionsCount} />
           </ul>
 
           <div className="mt-8">
@@ -208,7 +228,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, projects, activeView, onNavigat
           </div>
         </div>
         <div className="pt-4 space-y-2">
-            <NavItem icon={<SettingsIcon />} label={t('nav.settings')} isActive={activeView === 'settings'} onClick={() => onNavigate({ type: 'settings', payload: null })} />
+            <NavItem icon={<SettingsIcon />} label={t('nav.settings')} isActive={activeView === 'settings'} onClick={() => handleNavigate({ type: 'settings', payload: null })} />
 
             {/* Language toggle */}
             <button
@@ -233,14 +253,14 @@ const Sidebar: React.FC<SidebarProps> = ({ user, projects, activeView, onNavigat
             {/* Legal links */}
             <div className="flex items-center gap-3 px-3 pt-1 pb-1">
               <button
-                onClick={() => onNavigate({ type: 'privacy', payload: null })}
+                onClick={() => handleNavigate({ type: 'privacy', payload: null })}
                 className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
               >
                 Privacy
               </button>
               <span className="text-gray-300 text-xs">·</span>
               <button
-                onClick={() => onNavigate({ type: 'terms', payload: null })}
+                onClick={() => handleNavigate({ type: 'terms', payload: null })}
                 className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
               >
                 Terms
@@ -277,6 +297,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, projects, activeView, onNavigat
         </div>
     )}
     </aside>
+    </>
   );
 };
 
