@@ -15,6 +15,7 @@ interface CreateCampaignPageProps {
 }
 
 const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onSave, onCancel, userPrompts, campaignToEdit, userId }) => {
+    const [purpose, setPurpose] = useState<'marketplace' | 'social'>('marketplace');
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [budget, setBudget] = useState(50);
@@ -139,6 +140,7 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onSave, onCance
             creativeType,
             promptIds: selectedPromptIds,
             status,
+            purpose,
         });
     };
     
@@ -154,7 +156,36 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onSave, onCance
                 <div className="bg-white p-8 rounded-xl shadow-md border border-gray-200 space-y-6">
                     <div>
                         <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Campaign' : 'Create New Campaign'}</h1>
-                        <p className="text-gray-500 text-sm">Promote your prompts to reach a wider audience.</p>
+                        <p className="text-gray-500 text-sm">Promptlarını daha fazla kişiye ulaştırmak için kampanya oluştur.</p>
+                    </div>
+
+                    {/* Campaign purpose */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-3">Kampanya Türü</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setPurpose('marketplace')}
+                                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-colors ${purpose === 'marketplace' ? 'border-brand-orange bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}
+                            >
+                                <span className="text-2xl mt-0.5">🏪</span>
+                                <div>
+                                    <p className="font-semibold text-sm text-gray-800">Marketplace Öne Çıkarma</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">Ürünlerin marketplace'de daha üst sıralarda görünsün. Pro+ planı gerektirir.</p>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPurpose('social')}
+                                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-colors ${purpose === 'social' ? 'border-brand-orange bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}
+                            >
+                                <span className="text-2xl mt-0.5">📣</span>
+                                <div>
+                                    <p className="font-semibold text-sm text-gray-800">Sosyal Medya Tanıtımı</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">Promptların keşfet akışında daha fazla kişiye gösterilsin. Tüm planlar.</p>
+                                </div>
+                            </button>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -22,12 +22,16 @@ interface PostItemProps {
   onFavorite: (postId: string) => void;
   onNavigate: (view: View) => void;
   onDelete?: (postId: string) => void;
+  onEdit?: (postId: string, newCaption: string, newTags: string[]) => void;
 }
 
-const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onComment, onFollow, onFavorite, onNavigate, onDelete }) => {
+const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onComment, onFollow, onFavorite, onNavigate, onDelete, onEdit }) => {
   const [commentText, setCommentText] = useState('');
   const [showAllComments, setShowAllComments] = useState(false);
   const [showBoostModal, setShowBoostModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editCaption, setEditCaption] = useState('');
+  const [editTags, setEditTags] = useState('');
   const [boostBudget, setBoostBudget] = useState('10');
   const [boostAudience, setBoostAudience] = useState('general');
   const [boostDuration, setBoostDuration] = useState(7);
@@ -97,16 +101,31 @@ const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onCommen
             <p className="text-xs text-gray-500">{timeSince(post.createdAt)} ago</p>
           </div>
         </button>
-        {isOwnPost && onDelete && (
-          <button
-            onClick={() => onDelete(post.id)}
-            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-            title="Delete post"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+        {isOwnPost && (
+          <div className="flex items-center gap-1">
+            {onEdit && (
+              <button
+                onClick={() => { setEditCaption(post.caption); setEditTags(post.tags.join(', ')); setShowEditModal(true); }}
+                className="p-2 text-gray-400 hover:text-brand-orange hover:bg-orange-50 rounded-full transition-colors"
+                title="Edit post"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(post.id)}
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                title="Delete post"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+          </div>
         )}
         {!isOwnPost && (
           <button
@@ -186,6 +205,49 @@ const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onCommen
             </div>
         </div>
       </div>
+
+      {/* Edit Post Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4">Gönderiyi Düzenle</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
+                <textarea
+                  value={editCaption}
+                  onChange={e => setEditCaption(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-xl border-gray-300 focus:ring-brand-orange focus:border-brand-orange text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Etiketler (virgülle ayır)</label>
+                <input
+                  type="text"
+                  value={editTags}
+                  onChange={e => setEditTags(e.target.value)}
+                  className="w-full rounded-xl border-gray-300 focus:ring-brand-orange focus:border-brand-orange text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowEditModal(false)} className="flex-1 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50">İptal</button>
+              <button
+                onClick={() => {
+                  if (onEdit) {
+                    onEdit(post.id, editCaption, editTags.split(',').map(t => t.trim()).filter(Boolean));
+                    setShowEditModal(false);
+                  }
+                }}
+                className="flex-1 py-2.5 text-sm font-semibold text-white bg-brand-orange rounded-xl hover:bg-orange-600"
+              >
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Boost Post Modal */}
       {showBoostModal && (

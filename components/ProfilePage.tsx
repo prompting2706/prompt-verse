@@ -19,9 +19,10 @@ interface ProfilePageProps {
     onMessageUser: (userId: string) => void;
     onRequestVerification?: () => void;
     onDeletePost?: (postId: string) => void;
+    onEditPost?: (postId: string, newCaption: string, newTags: string[]) => void;
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, posts, onFollowUser, onLikePost, onAddComment, onFavoritePost, onNavigate, onCreatePost, onMessageUser, onRequestVerification, onDeletePost }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, posts, onFollowUser, onLikePost, onAddComment, onFavoritePost, onNavigate, onCreatePost, onMessageUser, onRequestVerification, onDeletePost, onEditPost }) => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     
     const userPosts = posts.filter(p => p.authorId === profileUser.id)
@@ -132,6 +133,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
                                 onFavorite={onFavoritePost}
                                 onNavigate={onNavigate}
                                 onDelete={isOwnProfile ? onDeletePost : undefined}
+                                onEdit={isOwnProfile ? onEditPost : undefined}
                             />
                         ))
                     ) : (

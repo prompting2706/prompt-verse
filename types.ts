@@ -190,6 +190,7 @@ export interface Campaign {
   status: 'active' | 'paused' | 'completed';
   creativeType: 'image' | 'video';
   creativeUrl: string;
+  purpose?: 'marketplace' | 'social';
   // Aggregated data
   totalImpressions: number;
   totalSales: number; // Number of sales generated

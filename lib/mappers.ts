@@ -30,7 +30,7 @@ export function mapDbPrompt(row: Row): Prompt {
     description: row.description ?? '',
     promptText: row.prompt_text ?? row.content ?? '',
     tags: row.tags ?? [],
-    projectId: row.project_id ?? '',
+    projectId: row.project_id ?? null,
     outputs: row.outputs ?? row.output_files ?? [],
     lastEdited: row.updated_at ?? row.created_at,
     likes: row.likes ?? [],

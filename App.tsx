@@ -984,10 +984,16 @@ const App: React.FC = () => {
 
 
   const handleSaveCampaign = async (campaignData: Omit<Campaign, 'id' | 'totalImpressions' | 'totalSales' | 'promptStats'> & { id?: string }) => {
+    // Marketplace campaigns require canSell (Pro+)
+    if (campaignData.purpose === 'marketplace' && !PLAN_LIMITS[user.membership].canSell) {
+      toast.warning('Marketplace kampanyaları için Pro veya Team planı gereklidir.');
+      navigate({ type: 'upgrade', payload: null });
+      return;
+    }
     const existingIndex = campaigns.findIndex(c => c.id === campaignData.id);
     if (existingIndex === -1) {
       const maxCampaigns = PLAN_LIMITS[user.membership].maxCampaigns;
-      if (campaigns.length >= maxCampaigns) {
+      if (isFinite(maxCampaigns) && campaigns.filter(c => c.purpose !== 'social').length >= maxCampaigns) {
         toast.warning(`Plan limitine ulaştınız (${maxCampaigns} kampanya). Daha fazla kampanya oluşturmak için planınızı yükseltin.`);
         navigate({ type: 'upgrade', payload: null });
         return;
@@ -1294,8 +1300,14 @@ const App: React.FC = () => {
       navigate({ type: 'publicStore', payload: { sellerId: seller.id, sellerName: seller.name, avatarUrl: seller.avatarUrl, verificationStatus: seller.verificationStatus as any } });
   };
 
-  const handleRequestVerification = () => {
+  const handleRequestVerification = async () => {
+    try {
+      await profileService.update(user.id, { verification_status: 'pending' });
       setUser(prev => ({ ...prev, verificationStatus: 'pending' }));
+      toast.success('Doğrulama talebiniz alındı. En kısa sürede incelenecek.');
+    } catch {
+      toast.error('Doğrulama talebi gönderilemedi. Lütfen tekrar deneyin.');
+    }
   };
 
   const handleSellYourPrompts = () => {
@@ -1470,6 +1482,28 @@ const App: React.FC = () => {
       });
       const newPost = mapDbPost(created as Record<string, any>);
       setPosts(prevPosts => [newPost, ...prevPosts]);
+
+      // Parse @mentions and send notifications
+      const mentionMatches = [...postData.caption.matchAll(/@(\w+)/g)].map(m => m[1]);
+      if (mentionMatches.length > 0) {
+        const mentionedUsers = await Promise.all(
+          mentionMatches.map(name => profileService.search(name).then(rows => rows.find(r => (r.name ?? '').toLowerCase().includes(name.toLowerCase()))))
+        );
+        for (const mentionedUser of mentionedUsers.filter(Boolean)) {
+          if (mentionedUser && mentionedUser.id !== user.id) {
+            void notificationService.create({
+              user_id: mentionedUser.id,
+              actor_id: user.id,
+              actor_name: user.name,
+              actor_avatar: user.avatarUrl,
+              type: 'comment',
+              target_type: 'post',
+              target_id: newPost.id,
+              target_preview: postData.caption.slice(0, 80),
+            }).catch(() => {});
+          }
+        }
+      }
     } catch {
       toast.error('Post oluşturulurken hata oluştu.');
     }
@@ -1482,6 +1516,16 @@ const App: React.FC = () => {
       toast.success('Gönderi silindi.');
     } catch {
       toast.error('Gönderi silinirken hata oluştu.');
+    }
+  };
+
+  const handleEditPost = async (postId: string, newCaption: string, newTags: string[]) => {
+    try {
+      await postService.update(postId, { caption: newCaption, tags: newTags });
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, caption: newCaption, tags: newTags } : p));
+      toast.success('Gönderi güncellendi.');
+    } catch {
+      toast.error('Gönderi güncellenirken hata oluştu.');
     }
   };
 
@@ -1661,22 +1705,12 @@ const App: React.FC = () => {
               onMessageUser={handleMessageUser}
               onRequestVerification={profileUser.id === user.id ? handleRequestVerification : undefined}
               onDeletePost={handleDeletePost}
+              onEditPost={handleEditPost}
           />;
       }
       case 'createCampaign': {
-          if (PLAN_LIMITS[user.membership].maxCampaigns === 0) {
-            return (
-              <div className="text-center max-w-2xl mx-auto bg-white p-12 rounded-xl shadow-md border border-gray-200">
-                <RocketLaunchIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Kampanya Özelliğini Aç</h2>
-                <p className="text-gray-600 mb-6">Kampanyalar, promtlarını marketplace'de ve keşfet alanında öne çıkarmak için Pro planı gerektirir.</p>
-                <button onClick={() => navigate({ type: 'upgrade', payload: null })} className="flex items-center gap-2 mx-auto bg-brand-orange text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-orange-600 transition-colors shadow-sm">
-                  <ArrowUpIcon />
-                  Pro'ya Yükselt
-                </button>
-              </div>
-            );
-          }
+          // Starter can create social campaigns only — marketplace campaigns require canSell
+          // (maxCampaigns check removed: Starter can do social, Pro+ can do marketplace too)
           const campaignToEdit = view.payload?.campaignId ? campaigns.find(c => c.id === view.payload.campaignId) : undefined;
           return <CreateCampaignPage
               onSave={handleSaveCampaign}

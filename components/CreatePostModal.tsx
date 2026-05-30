@@ -159,13 +159,17 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSa
                         </div>
 
                         <div>
-                            <label htmlFor="caption" className="block text-sm font-medium text-gray-700">Caption</label>
+                            <div className="flex items-center justify-between">
+                                <label htmlFor="caption" className="block text-sm font-medium text-gray-700">Caption</label>
+                                <span className="text-xs text-gray-400">Birini etiketlemek için @kullanıcıadı yazın</span>
+                            </div>
                             <textarea
                                 id="caption"
                                 value={caption}
                                 onChange={e => setCaption(e.target.value)}
                                 rows={4}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm"
+                                placeholder="Gönderinizi açıklayın... @birini etiketleyin"
                                 required
                             />
                         </div>

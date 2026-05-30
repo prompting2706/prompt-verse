@@ -54,6 +54,11 @@ export const postService = {
     if (error) throw error;
   },
 
+  async update(id: string, updates: { caption?: string; tags?: string[] }): Promise<void> {
+    const { error } = await supabase.from('posts').update(updates as any).eq('id', id);
+    if (error) throw error;
+  },
+
   async toggleLike(postId: string, userId: string, currentLikes: string[]): Promise<string[]> {
     const liked = currentLikes.includes(userId);
     const newLikes = liked
