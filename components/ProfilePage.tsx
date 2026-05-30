@@ -5,6 +5,7 @@ import PostItem from './PostItem';
 import { UsersIcon, PlusIcon } from './icons/Icons';
 import CreatePostModal, { type PostData } from './CreatePostModal';
 import VerifiedBadge from './VerifiedBadge';
+import AvatarCropModal from './AvatarCropModal';
 
 interface ProfilePageProps {
     profileUser: User;
@@ -20,10 +21,12 @@ interface ProfilePageProps {
     onRequestVerification?: () => void;
     onDeletePost?: (postId: string) => void;
     onEditPost?: (postId: string, newCaption: string, newTags: string[]) => void;
+    onUpdateAvatar?: (blob: Blob) => Promise<void>;
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, posts, onFollowUser, onLikePost, onAddComment, onFavoritePost, onNavigate, onCreatePost, onMessageUser, onRequestVerification, onDeletePost, onEditPost }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, posts, onFollowUser, onLikePost, onAddComment, onFavoritePost, onNavigate, onCreatePost, onMessageUser, onRequestVerification, onDeletePost, onEditPost, onUpdateAvatar }) => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [showAvatarCrop, setShowAvatarCrop] = useState(false);
     
     const userPosts = posts.filter(p => p.authorId === profileUser.id)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -36,7 +39,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
             {/* Header */}
             <div className="bg-white p-8 rounded-xl shadow-md border border-gray-200 mb-8">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                    <img src={profileUser.avatarUrl} alt={profileUser.name} className="w-32 h-32 rounded-full border-4 border-white shadow-lg" />
+                    <div className="relative group">
+                        <img src={profileUser.avatarUrl} alt={profileUser.name} className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover" />
+                        {isOwnProfile && onUpdateAvatar && (
+                            <button
+                                onClick={() => setShowAvatarCrop(true)}
+                                className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Fotoğrafı değiştir"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
                     <div className="flex-grow text-center sm:text-left">
                         <div className="flex items-center gap-2">
                             <h1 className="text-3xl font-bold">{profileUser.name}</h1>
@@ -152,6 +169,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
                 onSave={onCreatePost}
                 userId={currentUser.id}
             />
+
+            {onUpdateAvatar && (
+                <AvatarCropModal
+                    isOpen={showAvatarCrop}
+                    onClose={() => setShowAvatarCrop(false)}
+                    onSave={onUpdateAvatar}
+                />
+            )}
         </div>
     );
 };

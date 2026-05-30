@@ -49,6 +49,7 @@ import { profileService } from './lib/profileService';
 import { projectService } from './lib/projectService';
 import { marketplaceService } from './lib/marketplaceService';
 import { postService } from './lib/postService';
+import { storageService } from './lib/storageService';
 import { campaignService } from './lib/campaignService';
 import { customOrderService } from './lib/customOrderService';
 import { referralService } from './lib/referralService';
@@ -1300,6 +1301,18 @@ const App: React.FC = () => {
       navigate({ type: 'publicStore', payload: { sellerId: seller.id, sellerName: seller.name, avatarUrl: seller.avatarUrl, verificationStatus: seller.verificationStatus as any } });
   };
 
+  const handleUpdateAvatar = async (blob: Blob) => {
+    try {
+      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      const url = await storageService.uploadAvatar(user.id, file);
+      await profileService.update(user.id, { avatar_url: url });
+      setUser(prev => ({ ...prev, avatarUrl: url }));
+      toast.success('Profil fotoğrafı güncellendi.');
+    } catch {
+      toast.error('Fotoğraf yüklenirken hata oluştu. Lütfen tekrar deneyin.');
+    }
+  };
+
   const handleRequestVerification = async () => {
     try {
       await profileService.update(user.id, { verification_status: 'pending' });
@@ -1706,6 +1719,7 @@ const App: React.FC = () => {
               onRequestVerification={profileUser.id === user.id ? handleRequestVerification : undefined}
               onDeletePost={handleDeletePost}
               onEditPost={handleEditPost}
+              onUpdateAvatar={profileUser.id === user.id ? handleUpdateAvatar : undefined}
           />;
       }
       case 'createCampaign': {
