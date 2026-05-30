@@ -11,7 +11,7 @@ interface ReferralPageProps {
 }
 
 const REWARD_PER_PLAN: Record<MembershipType, number> = {
-  [MembershipType.STARTER]: 3,
+  [MembershipType.STARTER]: 0,
   [MembershipType.CREATOR]: 5,
   [MembershipType.PRO]: 8,
   [MembershipType.TEAM]: 12,

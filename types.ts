@@ -40,8 +40,11 @@ export interface Post {
   caption: string;
   tags: string[];
   createdAt: string;
-  likes: string[]; // Array of user IDs
+  likes: string[];
   comments: Comment[];
+  viewsCount?: number;
+  sharesCount?: number;
+  savesCount?: number;
 }
 
 export type VerificationStatus = 'none' | 'pending' | 'verified';

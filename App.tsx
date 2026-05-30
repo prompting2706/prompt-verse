@@ -38,8 +38,8 @@ import { MOCK_USER, MOCK_SYSTEM_PROMPTS, PLAN_LIMITS, MOCK_COUPONS } from './con
 import { type Project, type Prompt, type User, type View, type CartItem, MembershipType, type Order, type MarketplaceItem, type Collaborator, type Post, type Campaign, type Notification, type Conversation, type ReferralRecord, type Coupon, type CustomOrder, type CustomOrderStatus } from './types';
 
 import { type MarketplaceItemData } from './components/AddProductModal';
-import { type PostData } from './components/CreatePostModal';
-import { ArchiveIcon, ArrowUpIcon } from './components/icons/Icons';
+import CreatePostModal, { type PostData } from './components/CreatePostModal';
+import { ArchiveIcon, ArrowUpIcon, RocketLaunchIcon } from './components/icons/Icons';
 import { toast } from './utils/toast';
 import { authService } from './lib/auth';
 import { emailService } from './lib/emailService';
@@ -99,6 +99,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [promptToShare, setPromptToShare] = useState<Prompt | null>(null);
   const [promptToShareViaMessage, setPromptToShareViaMessage] = useState<Prompt | null>(null);
+  const [promptToShareAsPost, setPromptToShareAsPost] = useState<Prompt | null>(null);
   const [projectToShare, setProjectToShare] = useState<Project | null>(null);
   const [shouldOpenAddProductModal, setShouldOpenAddProductModal] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -1662,7 +1663,20 @@ const App: React.FC = () => {
               onDeletePost={handleDeletePost}
           />;
       }
-      case 'createCampaign':
+      case 'createCampaign': {
+          if (PLAN_LIMITS[user.membership].maxCampaigns === 0) {
+            return (
+              <div className="text-center max-w-2xl mx-auto bg-white p-12 rounded-xl shadow-md border border-gray-200">
+                <RocketLaunchIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Kampanya Özelliğini Aç</h2>
+                <p className="text-gray-600 mb-6">Kampanyalar, promtlarını marketplace'de ve keşfet alanında öne çıkarmak için Pro planı gerektirir.</p>
+                <button onClick={() => navigate({ type: 'upgrade', payload: null })} className="flex items-center gap-2 mx-auto bg-brand-orange text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-orange-600 transition-colors shadow-sm">
+                  <ArrowUpIcon />
+                  Pro'ya Yükselt
+                </button>
+              </div>
+            );
+          }
           const campaignToEdit = view.payload?.campaignId ? campaigns.find(c => c.id === view.payload.campaignId) : undefined;
           return <CreateCampaignPage
               onSave={handleSaveCampaign}
@@ -1670,7 +1684,8 @@ const App: React.FC = () => {
               userPrompts={visiblePrompts}
               campaignToEdit={campaignToEdit}
               userId={user.id}
-          />
+          />;
+      }
       case 'campaignDetail':
           const campaign = campaigns.find(c => c.id === view.payload?.campaignId);
           if (!campaign) return <h2>Campaign not found</h2>;
@@ -1716,9 +1731,8 @@ const App: React.FC = () => {
                 onDuplicate={handleDuplicatePrompt}
                 onArchive={handleArchivePrompt}
                 onUnarchive={handleUnarchivePrompt}
-                onLike={handleLikePrompt}
-                onAddComment={handleAddPromptComment}
                 onShareViaMessage={(prompt) => setPromptToShareViaMessage(prompt)}
+                onShareAsPost={(prompt) => setPromptToShareAsPost(prompt)}
               />;
       case 'notFound':
         return <NotFoundPage onBack={() => navigate({ type: 'dashboard', payload: null })} />;
@@ -1941,6 +1955,20 @@ const App: React.FC = () => {
         />
       )}
       
+      {promptToShareAsPost && (
+        <CreatePostModal
+          isOpen={!!promptToShareAsPost}
+          onClose={() => setPromptToShareAsPost(null)}
+          userId={user.id}
+          initialCaption={`${promptToShareAsPost.title}\n\n${promptToShareAsPost.description}\n\n#promptverse #ai #prompt`}
+          onSave={async (postData) => {
+            await handleCreatePost(postData);
+            setPromptToShareAsPost(null);
+            navigate({ type: 'profile', payload: { userId: user.id } });
+          }}
+        />
+      )}
+
       <ShareViaMessageModal
           isOpen={!!promptToShareViaMessage}
           onClose={() => setPromptToShareViaMessage(null)}

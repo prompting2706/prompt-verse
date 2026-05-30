@@ -184,7 +184,7 @@ const MyStore: React.FC<MyStoreProps> = ({ user, items, prompts, campaigns, onDe
                 <div>
                     {activeTab === 'products' && <MyProductsView items={items} user={user} onDeleteItem={onDeleteItem} onEditItem={handleOpenEditModal} onBoostItem={setBoostModalItem} />}
                     {activeTab === 'analytics' && <AnalyticsView items={items} campaigns={campaigns} user={user} />}
-                    {activeTab === 'campaigns' && <CampaignsList campaigns={campaigns} onNavigate={onNavigate} />}
+                    {activeTab === 'campaigns' && <CampaignsList campaigns={campaigns} onNavigate={onNavigate} user={user} />}
                 </div>
             )}
              <AddProductModal
@@ -206,6 +206,7 @@ const MyStore: React.FC<MyStoreProps> = ({ user, items, prompts, campaigns, onDe
                 onClose={() => setShowBundleModal(false)}
                 onSave={(data) => { onAddBundle(data); setShowBundleModal(false); }}
                 userPrompts={prompts}
+                userId={user.id}
             />
         </div>
     );

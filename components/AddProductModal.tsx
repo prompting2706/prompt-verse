@@ -10,6 +10,7 @@ export interface MarketplaceItemData {
     title: string;
     description: string;
     price: number;
+    originalPrice?: number;
     coverImage: string;
     tags: string[];
     type: 'single' | 'collection';
@@ -30,15 +31,18 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [originalPrice, setOriginalPrice] = useState('');
   const [tags, setTags] = useState('');
   const [type, setType] = useState<'single' | 'collection'>('single');
   const [promptCount, setPromptCount] = useState('');
   const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [extraImages, setExtraImages] = useState<string[]>([]);
   const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>([]);
   const [promptSearchTerm, setPromptSearchTerm] = useState('');
   const [error, setError] = useState('');
   const [suggestedPrice, setSuggestedPrice] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
 
@@ -62,11 +66,23 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
       setSuggestedPrice(basePrice);
   }, [type, tags, promptCount]);
   
+  const handleExtraFileChange = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const preview = URL.createObjectURL(file);
+      setExtraFiles(prev => { const next = [...prev]; next[idx] = file; return next; });
+      setExtraImages(prev => { const next = [...prev]; next[idx] = preview; return next; });
+    }
+  };
+
   const resetForm = () => {
       setTitle('');
       setDescription('');
       setPrice('');
+      setOriginalPrice('');
       setTags('');
+      setExtraImages([]);
+      setExtraFiles([]);
       setType('single');
       setPromptCount('');
       setCoverImage(null);
@@ -86,6 +102,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
             setTitle(itemToEdit.title);
             setDescription(itemToEdit.description);
             setPrice(itemToEdit.price.toString());
+            setOriginalPrice(itemToEdit.originalPrice ? itemToEdit.originalPrice.toString() : '');
             setTags(itemToEdit.tags?.join(', ') || '');
             setType(itemToEdit.type);
             setPromptCount(itemToEdit.promptCount ? itemToEdit.promptCount.toString() : '');
@@ -175,11 +192,13 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
         setUploading(false);
     }
 
+    const origPriceNum = originalPrice ? Number(originalPrice) : undefined;
     const itemData: MarketplaceItemData = {
       id: itemToEdit?.id,
       title,
       description,
       price: Number(price),
+      originalPrice: origPriceNum && origPriceNum > Number(price) ? origPriceNum : undefined,
       coverImage: finalCoverImage,
       tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
       type,
@@ -201,20 +220,37 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto">
             <div className="p-6 space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Cover Photo</label>
-                    <div className="mt-1 flex items-center gap-4">
-                        <div className="w-40 h-24 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Photos (up to 3)</label>
+                    <div className="grid grid-cols-3 gap-3">
+                        {/* Slot 1 — main cover */}
+                        <label htmlFor="cover-upload" className="cursor-pointer relative aspect-square bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-300 hover:border-brand-orange">
                             {coverImage ? (
-                                <img src={coverImage} alt="Cover preview" className="w-full h-full object-cover" />
+                                <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
                             ) : (
-                                <ImageIcon className="w-10 h-10 text-gray-400" />
+                                <div className="text-center p-2"><ImageIcon className="w-6 h-6 text-gray-400 mx-auto mb-1" /><span className="text-xs text-gray-400">Cover</span></div>
                             )}
-                        </div>
-                        <label htmlFor="cover-upload" className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50">
-                            <span>Upload Image</span>
-                            <input id="cover-upload" name="cover-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
+                            <input id="cover-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
+                        </label>
+                        {/* Slot 2 */}
+                        <label htmlFor="extra-upload-0" className="cursor-pointer relative aspect-square bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-200 hover:border-brand-orange">
+                            {extraImages[0] ? (
+                                <img src={extraImages[0]} alt="Extra 1" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="text-center p-2"><ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" /><span className="text-xs text-gray-400">Photo 2</span></div>
+                            )}
+                            <input id="extra-upload-0" type="file" className="sr-only" onChange={e => handleExtraFileChange(e, 0)} accept="image/*" />
+                        </label>
+                        {/* Slot 3 */}
+                        <label htmlFor="extra-upload-1" className="cursor-pointer relative aspect-square bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-200 hover:border-brand-orange">
+                            {extraImages[1] ? (
+                                <img src={extraImages[1]} alt="Extra 2" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="text-center p-2"><ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" /><span className="text-xs text-gray-400">Photo 3</span></div>
+                            )}
+                            <input id="extra-upload-1" type="file" className="sr-only" onChange={e => handleExtraFileChange(e, 1)} accept="image/*" />
                         </label>
                     </div>
+                    <p className="mt-1 text-xs text-gray-400">İlk fotoğraf kapak görseli olarak kullanılır.</p>
                 </div>
 
                 <div>
@@ -289,13 +325,33 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="price" className="block text-sm font-medium text-gray-700">Price ($)</label>
+                        <div className="flex items-center gap-1.5">
+                            <label htmlFor="originalPrice" className="block text-sm font-medium text-gray-700">Original Price ($)</label>
+                            <div className="relative group">
+                                <span className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center cursor-help font-bold">?</span>
+                                <div className="absolute left-1/2 -translate-x-1/2 bottom-6 w-52 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-1.5 hidden group-hover:block z-10 shadow-lg">
+                                    Ürünün normal/karşılaştırma fiyatı. Alıcı üstü çizili olarak görür ve tasarruf miktarını hesaplar. Paket fiyatından yüksek olmalı.
+                                </div>
+                            </div>
+                        </div>
+                        <input type="number" id="originalPrice" value={originalPrice} onChange={e => setOriginalPrice(e.target.value)} min="0" step="0.01" placeholder="0.00 (opsiyonel)" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-1.5">
+                            <label htmlFor="price" className="block text-sm font-medium text-gray-700">Sale Price ($)</label>
+                            <div className="relative group">
+                                <span className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center cursor-help font-bold">?</span>
+                                <div className="absolute left-1/2 -translate-x-1/2 bottom-6 w-52 bg-gray-800 text-white text-xs rounded-lg px-2.5 py-1.5 hidden group-hover:block z-10 shadow-lg">
+                                    Alıcının ödeyeceği gerçek fiyat. Minimum ${MIN_MARKETPLACE_PRICE}.00 olmalıdır.
+                                </div>
+                            </div>
+                        </div>
                         <input type="number" id="price" value={price} onChange={e => setPrice(e.target.value)} min={MIN_MARKETPLACE_PRICE} step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm" required />
                         <p className="mt-1 text-xs text-gray-400">Minimum: ${MIN_MARKETPLACE_PRICE}.00</p>
                         {suggestedPrice !== null && (
                             <p className="mt-1 text-xs text-brand-orange flex items-center gap-1 font-medium">
                                 <SparklesIcon className="w-3 h-3" />
-                                Analitik Önerisi: Benzer promptlar genelde ${suggestedPrice.toFixed(2)}'a satılıyor.
+                                Similar prompts sell for ~${suggestedPrice.toFixed(2)}.
                             </p>
                         )}
                     </div>

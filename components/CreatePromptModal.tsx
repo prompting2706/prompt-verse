@@ -94,25 +94,15 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-        Array.from(e.target.files).forEach((file: File) => {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const content = event.target?.result as string;
-                let type: OutputType;
-                const fileName = file.name;
-                if (file.type.startsWith('image/')) {
-                    type = OutputType.IMAGE;
-                } else if (file.type.startsWith('video/')) {
-                    type = OutputType.VIDEO;
-                } else if (file.type.startsWith('audio/')) {
-                    type = OutputType.AUDIO;
-                } else {
-                    type = OutputType.FILE;
-                }
-                setOutputs(prev => [...prev, { type, content, fileName }]);
-            };
-            reader.readAsDataURL(file);
-        });
+      Array.from(e.target.files).forEach((file: File) => {
+        let type: OutputType;
+        if (file.type.startsWith('image/')) type = OutputType.IMAGE;
+        else if (file.type.startsWith('video/')) type = OutputType.VIDEO;
+        else if (file.type.startsWith('audio/')) type = OutputType.AUDIO;
+        else type = OutputType.FILE;
+        const blobUrl = URL.createObjectURL(file);
+        setOutputs(prev => [...prev, { type, content: blobUrl, fileName: file.name }]);
+      });
     }
   };
 

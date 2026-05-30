@@ -15,12 +15,13 @@ interface CreatePostModalProps {
   onClose: () => void;
   onSave: (data: PostData) => void;
   userId: string;
+  initialCaption?: string;
 }
 
 const MAX_VIDEO_SIZE_MB = 50;
 
-const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSave, userId }) => {
-    const [caption, setCaption] = useState('');
+const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSave, userId, initialCaption }) => {
+    const [caption, setCaption] = useState(initialCaption ?? '');
     const [tags, setTags] = useState('');
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
@@ -29,6 +30,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSa
     const [uploading, setUploading] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const previewUrlRef = useRef<string | null>(null);
+
+    React.useEffect(() => {
+        if (isOpen) setCaption(initialCaption ?? '');
+    }, [isOpen, initialCaption]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setError('');

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { type Post, type User, type View } from '../types';
 import { HeartIcon, CommentIcon, ShareIcon, BookmarkIcon } from './icons/Icons';
 import { toast } from '../utils/toast';
+import { SPONSORED_LISTING_OPTIONS } from '../constants';
 
 interface PostItemProps {
   post: Post;
@@ -18,6 +19,7 @@ interface PostItemProps {
 const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onComment, onFollow, onFavorite, onNavigate, onDelete }) => {
   const [commentText, setCommentText] = useState('');
   const [showAllComments, setShowAllComments] = useState(false);
+  const [showBoostModal, setShowBoostModal] = useState(false);
 
   const isLiked = post.likes.includes(currentUser.id);
   const isFollowing = currentUser.following?.includes(post.authorId);
@@ -106,6 +108,15 @@ const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onCommen
         <img src={post.imageUrl} alt="Post content" className="w-full" />
       )}
 
+      {/* Own-post analytics strip */}
+      {isOwnPost && (post.viewsCount !== undefined || post.sharesCount !== undefined || post.savesCount !== undefined) && (
+        <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center gap-4 text-xs text-gray-500">
+          {post.viewsCount !== undefined && <span>👁 {post.viewsCount} görüntüleme</span>}
+          {post.sharesCount !== undefined && <span>↗ {post.sharesCount} paylaşım</span>}
+          {post.savesCount !== undefined && <span>🔖 {post.savesCount} kayıt</span>}
+        </div>
+      )}
+
       {/* Content & Actions */}
       <div className="p-4">
         <p className="mb-4 text-sm">{renderCommentText(post.caption)}</p>
@@ -138,11 +149,52 @@ const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onCommen
                     <ShareIcon className="w-5 h-5" />
                 </button>
             </div>
-            <button onClick={() => onFavorite(post.id)} className="text-gray-600 hover:text-brand-green">
+            <div className="flex items-center gap-2">
+              {isOwnPost && (
+                <button
+                  onClick={() => setShowBoostModal(true)}
+                  className="flex items-center gap-1 text-xs font-semibold text-brand-orange bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full transition-colors"
+                >
+                  🚀 Öne Çıkart
+                </button>
+              )}
+              <button onClick={() => onFavorite(post.id)} className="text-gray-600 hover:text-brand-green">
                 <BookmarkIcon className={`w-6 h-6 ${isFavorited ? 'text-brand-green fill-current' : ''}`} />
-            </button>
+              </button>
+            </div>
         </div>
       </div>
+
+      {/* Boost Post Modal */}
+      {showBoostModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowBoostModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-1">🚀 Gönderiyi Öne Çıkart</h3>
+            <p className="text-sm text-gray-500 mb-5">Gönderini keşfet akışında daha fazla kişiye ulaştır.</p>
+            <div className="space-y-3">
+              {SPONSORED_LISTING_OPTIONS.map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    toast.success(`${opt.label} boost planı seçildi! Ödeme entegrasyonu yakında aktif olacak.`);
+                    setShowBoostModal(false);
+                  }}
+                  className={`w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-colors text-left ${opt.popular ? 'border-brand-orange bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}
+                >
+                  <div>
+                    <p className="font-semibold text-sm">{opt.label}{opt.popular && <span className="ml-2 text-xs bg-brand-orange text-white px-1.5 py-0.5 rounded-full">Popüler</span>}</p>
+                    <p className="text-xs text-gray-500">{opt.description}</p>
+                  </div>
+                  <span className="font-bold text-brand-green text-sm">${opt.price}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowBoostModal(false)} className="mt-4 w-full text-sm text-gray-500 hover:text-gray-700 py-2">
+              İptal
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Comments */}
       <div className="p-4 border-t border-gray-100 bg-gray-50/50">

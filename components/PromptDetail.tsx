@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { type Prompt, type Project, OutputType, type User, PermissionLevel } from '../types';
-import { ArrowLeftIcon, ShareIcon, CopyIcon, EditIcon, TrashIcon, ArchiveIcon, CodeIcon, ImageIcon, VideoIcon, AudioIcon, UnarchiveIcon, FileIcon, HeartIcon, CheckIcon } from './icons/Icons';
+import { ArrowLeftIcon, ShareIcon, CopyIcon, EditIcon, TrashIcon, ArchiveIcon, CodeIcon, ImageIcon, VideoIcon, AudioIcon, UnarchiveIcon, FileIcon, CheckIcon } from './icons/Icons';
 import SocialShareModal from './SocialShareModal';
 import { toast } from '../utils/toast';
 
@@ -17,24 +17,15 @@ interface PromptDetailProps {
   onArchive: (promptId: string) => void;
   onUnarchive: (promptId: string) => void;
   isArchived: boolean;
-  onLike?: (promptId: string) => void;
-  onAddComment?: (promptId: string, text: string) => void;
   backButtonText?: string;
   onShareViaMessage?: (prompt: Prompt) => void;
+  onShareAsPost?: (prompt: Prompt) => void;
 }
 
-const PromptDetail: React.FC<PromptDetailProps> = ({ prompt, projects, user, onBack, onEdit, onDelete, onDuplicate, onArchive, onUnarchive, isArchived, onLike, onAddComment, backButtonText: customBackButtonText, onShareViaMessage }) => {
-  const [commentText, setCommentText] = useState('');
+const PromptDetail: React.FC<PromptDetailProps> = ({ prompt, projects, user, onBack, onEdit, onDelete, onDuplicate, onArchive, onUnarchive, isArchived, backButtonText: customBackButtonText, onShareViaMessage, onShareAsPost }) => {
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [showShareModal, setShowShareModal] = useState(false);
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (commentText.trim() && onAddComment) {
-      onAddComment(prompt.id, commentText);
-      setCommentText('');
-    }
-  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -144,8 +135,11 @@ const PromptDetail: React.FC<PromptDetailProps> = ({ prompt, projects, user, onB
         </button>
         <div className="flex items-center gap-2">
           <ActionButton icon={<ShareIcon />} label="Paylaş" onClick={() => setShowShareModal(true)} />
+          {onShareAsPost && (
+            <ActionButton icon={<ShareIcon />} label="Keşfette Paylaş" onClick={() => onShareAsPost(prompt)} />
+          )}
           {onShareViaMessage && (
-              <ActionButton icon={<ShareIcon />} label="Send Message" onClick={() => onShareViaMessage(prompt)} />
+            <ActionButton icon={<CopyIcon />} label="Mesajla Gönder" onClick={() => onShareViaMessage(prompt)} />
           )}
           <ActionButton icon={<CopyIcon />} label="Duplicate" onClick={() => onDuplicate(prompt)}/>
           <ActionButton icon={<EditIcon />} label="Edit" onClick={() => onEdit(prompt)} primary disabled={!canEdit} />
@@ -281,47 +275,8 @@ const PromptDetail: React.FC<PromptDetailProps> = ({ prompt, projects, user, onB
             <div className="grid grid-cols-2 gap-4 text-sm mb-8">
                 <div><span className="font-semibold">Project:</span> {projectName}</div>
                 <div><span className="font-semibold">Last Edited:</span> {new Date(prompt.lastEdited).toLocaleDateString()}</div>
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold">Likes:</span> {prompt.likes?.length || 0}
-                  {onLike && (
-                    <button onClick={() => onLike(prompt.id)} className={`ml-1 ${prompt.likes?.includes(user.id) ? 'text-brand-orange' : 'text-gray-400 hover:text-brand-orange'}`}>
-                      <HeartIcon className="w-5 h-5"/>
-                    </button>
-                  )}
-                </div>
                 <div><span className="font-semibold">Times Used:</span> {prompt.usageCount}</div>
             </div>
-            
-            <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Comments ({prompt.comments?.length || 0})</h3>
-            <div className="space-y-4 mb-4">
-              {prompt.comments?.map(comment => (
-                <div key={comment.id} className="flex gap-3 bg-gray-50 p-3 rounded-md">
-                  <img src={comment.authorAvatar} alt={comment.authorName} className="w-8 h-8 rounded-full flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-semibold text-sm">{comment.authorName}</span>
-                      <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <p className="text-sm text-gray-700">{comment.text}</p>
-                  </div>
-                </div>
-              ))}
-              {(!prompt.comments || prompt.comments.length === 0) && (
-                <p className="text-sm text-gray-500 italic">No comments yet. Be the first to comment!</p>
-              )}
-            </div>
-            {onAddComment && (
-              <form onSubmit={handleCommentSubmit} className="flex gap-2">
-                <input
-                  type="text"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="flex-1 text-sm border-gray-300 rounded-md p-2 focus:ring-brand-orange focus:border-brand-orange"
-                />
-                <button type="submit" disabled={!commentText.trim()} className="px-4 py-2 bg-brand-orange text-white text-sm font-semibold rounded-md hover:bg-orange-600 disabled:opacity-50">Post</button>
-              </form>
-            )}
 
             {/* Audit Log / Version History */}
             <div className="mt-8 pt-6 border-t border-gray-100">

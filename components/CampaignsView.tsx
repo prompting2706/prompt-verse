@@ -1,17 +1,24 @@
 
 
 import React from 'react';
-import { type Campaign, type View } from '../types';
+import { type Campaign, type View, type User } from '../types';
 import { RocketLaunchIcon, PlusIcon, EyeIcon, ShoppingCartIcon, DollarSignIcon } from './icons/Icons';
+import { PLAN_LIMITS } from '../constants';
 
 interface CampaignsListProps {
   campaigns: Campaign[];
   onNavigate: (view: View) => void;
+  user: User;
 }
 
-const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns, onNavigate }) => {
+const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns, onNavigate, user }) => {
+  const canRunCampaigns = PLAN_LIMITS[user.membership].maxCampaigns > 0;
 
   const handleCreateNew = () => {
+    if (!canRunCampaigns) {
+      onNavigate({ type: 'upgrade', payload: null });
+      return;
+    }
     onNavigate({ type: 'createCampaign', payload: null });
   };
 
@@ -24,10 +31,11 @@ const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns, onNavigate }) 
         <div className="flex justify-end mb-6">
             <button
                 onClick={handleCreateNew}
-                className="flex items-center gap-2 bg-brand-orange text-white px-4 py-2 rounded-lg font-semibold hover:bg-orange-600 transition-colors shadow-sm"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors shadow-sm ${canRunCampaigns ? 'bg-brand-orange text-white hover:bg-orange-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
             >
                 <PlusIcon />
                 Create New Campaign
+                {!canRunCampaigns && <span className="text-xs bg-orange-100 text-brand-orange font-semibold px-1.5 py-0.5 rounded-full ml-1">Pro</span>}
             </button>
         </div>
     
