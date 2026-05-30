@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { type Prompt, type Project, OutputType, type PromptOutput } from '../types';
 import { suggestTitleForPrompt } from '../services/geminiService';
 import { SparklesIcon, XIcon, ImageIcon, VideoIcon, AudioIcon, FileIcon } from './icons/Icons';
+import { PLAN_LIMITS } from '../constants';
 
 import { calculateSimilarity } from '../utils/similarity';
 
@@ -18,11 +19,12 @@ interface CreatePromptModalProps {
 }
 
 const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, onSave, projects, promptToEdit, currentUser, allPrompts }) => {
+  const canUseAITitle = PLAN_LIMITS[currentUser.membership].canUseAITitle;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [promptText, setPromptText] = useState('');
   const [tags, setTags] = useState('');
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [outputs, setOutputs] = useState<PromptOutput[]>([]);
   const [isSuggestingTitle, setIsSuggestingTitle] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -42,7 +44,7 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
       setDescription('');
       setPromptText('');
       setTags('');
-      setProjectId(projects.length > 0 ? projects[0].id : '');
+      setProjectId('');
       setOutputs([]);
     }
     setErrorMsg(null);
@@ -175,11 +177,13 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
                 <div>
                     <label htmlFor="title" className="block text-sm font-medium text-gray-700">Title</label>
                     <div className="mt-1 flex rounded-md shadow-sm">
-                        <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} className="flex-1 block w-full min-w-0 rounded-none rounded-l-md border-gray-300 focus:ring-brand-orange focus:border-brand-orange sm:text-sm" required />
-                        <button type="button" onClick={handleSuggestTitle} disabled={isSuggestingTitle || !promptText} className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 text-sm disabled:opacity-50">
+                        <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} className={`flex-1 block w-full min-w-0 ${canUseAITitle ? 'rounded-none rounded-l-md' : 'rounded-md'} border-gray-300 focus:ring-brand-orange focus:border-brand-orange sm:text-sm`} required />
+                        {canUseAITitle && (
+                          <button type="button" onClick={handleSuggestTitle} disabled={isSuggestingTitle || !promptText} className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 text-sm disabled:opacity-50">
                             <SparklesIcon animate={isSuggestingTitle} />
                             {isSuggestingTitle ? 'Suggesting...' : 'AI Suggest'}
-                        </button>
+                          </button>
+                        )}
                     </div>
                 </div>
 
@@ -230,8 +234,9 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
                 </div>
 
                 <div>
-                    <label htmlFor="project" className="block text-sm font-medium text-gray-700">Project</label>
-                    <select id="project" value={projectId} onChange={e => setProjectId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm">
+                    <label htmlFor="project" className="block text-sm font-medium text-gray-700">Project <span className="text-gray-400 font-normal">(Optional)</span></label>
+                    <select id="project" value={projectId ?? ''} onChange={e => setProjectId(e.target.value || null)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm">
+                        <option value="">— Proje seçme —</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                 </div>

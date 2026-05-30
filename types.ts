@@ -116,7 +116,7 @@ export interface Prompt {
   description: string;
   promptText: string;
   tags: string[];
-  projectId: string;
+  projectId: string | null;
   outputs: PromptOutput[];
   lastEdited: string;
   likes: string[]; // Array of user IDs

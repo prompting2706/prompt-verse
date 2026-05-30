@@ -31,9 +31,12 @@ export interface PlanConfig {
   label: string;
   promptLimit: number;
   projectLimit: number;
+  archiveLimit: number;
   canArchive: boolean;
   canSell: boolean;
   canUseAI: boolean;
+  canUseAITitle: boolean;
+  canCreateBundle: boolean;
   maxCollaboratorsPerPrompt: number;
   maxCampaigns: number;
   commissionRate: number;
@@ -46,9 +49,12 @@ export const PLAN_LIMITS: Record<MembershipType, PlanConfig> = {
     label: 'Starter',
     promptLimit: 15,
     projectLimit: 2,
+    archiveLimit: 0,
     canArchive: false,
     canSell: false,
     canUseAI: false,
+    canUseAITitle: false,
+    canCreateBundle: false,
     maxCollaboratorsPerPrompt: 0,
     maxCampaigns: 0,
     commissionRate: MARKETPLACE_COMMISSION_RATE,
@@ -57,11 +63,14 @@ export const PLAN_LIMITS: Record<MembershipType, PlanConfig> = {
   },
   [MembershipType.CREATOR]: {
     label: 'Creator',
-    promptLimit: 150,
+    promptLimit: 50,
     projectLimit: Infinity,
+    archiveLimit: 15,
     canArchive: true,
     canSell: false,
     canUseAI: true,
+    canUseAITitle: false,
+    canCreateBundle: false,
     maxCollaboratorsPerPrompt: 2,
     maxCampaigns: 0,
     commissionRate: MARKETPLACE_COMMISSION_RATE,
@@ -72,11 +81,14 @@ export const PLAN_LIMITS: Record<MembershipType, PlanConfig> = {
     label: 'Pro',
     promptLimit: Infinity,
     projectLimit: Infinity,
+    archiveLimit: Infinity,
     canArchive: true,
     canSell: true,
     canUseAI: true,
+    canUseAITitle: true,
+    canCreateBundle: true,
     maxCollaboratorsPerPrompt: 10,
-    maxCampaigns: 5,
+    maxCampaigns: Infinity,
     commissionRate: MARKETPLACE_COMMISSION_RATE,
     price: { monthly: 19, yearly: 15.83 },
     color: 'orange',
@@ -85,9 +97,12 @@ export const PLAN_LIMITS: Record<MembershipType, PlanConfig> = {
     label: 'Team',
     promptLimit: Infinity,
     projectLimit: Infinity,
+    archiveLimit: Infinity,
     canArchive: true,
     canSell: true,
     canUseAI: true,
+    canUseAITitle: true,
+    canCreateBundle: true,
     maxCollaboratorsPerPrompt: Infinity,
     maxCampaigns: Infinity,
     commissionRate: 0.12,

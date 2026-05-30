@@ -689,8 +689,8 @@ const App: React.FC = () => {
       }
     } else {
       const limit = PLAN_LIMITS[user.membership].promptLimit;
-      const ownedCount = prompts.filter(p => p.ownerId === user.id).length;
-      if (ownedCount >= limit) {
+      const ownedCount = [...prompts, ...archivedPrompts].filter(p => p.ownerId === user.id).length;
+      if (isFinite(limit) && ownedCount >= limit) {
         toast.warning(`${limit} prompt limitine ulaştınız. Daha fazla prompt eklemek için planınızı yükseltin.`);
         navigate({ type: 'upgrade', payload: null });
         return;
@@ -785,6 +785,13 @@ const App: React.FC = () => {
       navigate({ type: 'upgrade', payload: null });
       return;
     }
+    const archiveLimit = PLAN_LIMITS[user.membership].archiveLimit;
+    const currentArchivedCount = archivedPrompts.filter(p => p.ownerId === user.id).length;
+    if (isFinite(archiveLimit) && currentArchivedCount >= archiveLimit) {
+      toast.warning(`Arşivleme limitine (${archiveLimit}) ulaştınız. Daha fazla prompt arşivlemek için planınızı yükseltin.`);
+      navigate({ type: 'upgrade', payload: null });
+      return;
+    }
     const promptToArchive = prompts.find(p => p.id === promptId);
     if (!promptToArchive) return;
     try {
@@ -817,6 +824,13 @@ const App: React.FC = () => {
   };
   
   const handleCreateProject = async (projectName: string) => {
+    const projectLimit = PLAN_LIMITS[user.membership].projectLimit;
+    const ownedProjectCount = projects.filter(p => p.ownerId === user.id).length;
+    if (isFinite(projectLimit) && ownedProjectCount >= projectLimit) {
+      toast.warning(`${projectLimit} proje limitine ulaştınız. Daha fazla proje oluşturmak için planınızı yükseltin.`);
+      navigate({ type: 'upgrade', payload: null });
+      return;
+    }
     try {
       const created = await projectService.create({
         user_id: user.id,
@@ -1460,6 +1474,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await postService.delete(postId);
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      toast.success('Gönderi silindi.');
+    } catch {
+      toast.error('Gönderi silinirken hata oluştu.');
+    }
+  };
+
     const handleFavoritePost = (postId: string) => {
         setUser(prevUser => {
             const isFavorited = prevUser.favorites?.includes(postId);
@@ -1635,6 +1659,7 @@ const App: React.FC = () => {
               onCreatePost={handleCreatePost}
               onMessageUser={handleMessageUser}
               onRequestVerification={profileUser.id === user.id ? handleRequestVerification : undefined}
+              onDeletePost={handleDeletePost}
           />;
       }
       case 'createCampaign':
@@ -1776,18 +1801,19 @@ const App: React.FC = () => {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto relative">
-        {/* Hamburger button — mobile only */}
-        <button
-          className="md:hidden absolute top-4 left-4 z-30 p-2 bg-white rounded-lg shadow-md"
-          onClick={() => setIsSidebarOpen(true)}
-          aria-label="Open menu"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <div className="absolute top-6 right-8 z-50">
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Top bar: hamburger (mobile) + notification */}
+        <div className="shrink-0 flex items-center justify-between px-4 md:px-8 pt-4 md:pt-5 pb-2 bg-brand-light-gray">
+          <button
+            className="md:hidden p-2 bg-white rounded-lg shadow-md"
+            onClick={() => setIsSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="ml-auto relative z-50">
            <button 
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative p-2 bg-white rounded-full shadow-md hover:bg-gray-50 focus:outline-none"
@@ -1862,8 +1888,12 @@ const App: React.FC = () => {
                    </div>
                </div>
            )}
+          </div>
         </div>
-        {renderView()}
+        {/* Scrollable page content */}
+        <div className="flex-1 px-4 md:px-8 pb-8 pt-2 overflow-y-auto">
+          {renderView()}
+        </div>
       </main>
       <CreatePromptModal
         isOpen={isModalOpen}

@@ -45,6 +45,7 @@ const MyStore: React.FC<MyStoreProps> = ({ user, items, prompts, campaigns, onDe
     }, [initialTab]);
 
     const canSell = PLAN_LIMITS[user.membership].canSell;
+    const canCreateBundle = PLAN_LIMITS[user.membership].canCreateBundle;
 
     const handleOpenAddModal = () => {
         if (!canSell) {
@@ -52,6 +53,15 @@ const MyStore: React.FC<MyStoreProps> = ({ user, items, prompts, campaigns, onDe
             return;
         }
         setModalState({ isOpen: true, itemToEdit: undefined });
+    };
+
+    const handleOpenBundleModal = () => {
+        if (!canCreateBundle) {
+            toast.warning('Paket oluşturabilmek için Pro veya Team planına geçmeniz gerekmektedir.');
+            onNavigate({ type: 'upgrade', payload: null });
+            return;
+        }
+        setShowBundleModal(true);
     };
 
     const handleOpenEditModal = (item: MarketplaceItem) => {
@@ -83,11 +93,16 @@ const MyStore: React.FC<MyStoreProps> = ({ user, items, prompts, campaigns, onDe
                 </div>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => setShowBundleModal(true)}
-                        className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors shadow-sm"
+                        onClick={handleOpenBundleModal}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors shadow-sm ${
+                            canCreateBundle
+                                ? 'bg-purple-600 text-white hover:bg-purple-700'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        }`}
                     >
                         <PackageIcon className="w-4 h-4" />
                         Paket Oluştur
+                        {!canCreateBundle && <span className="text-xs bg-orange-100 text-brand-orange font-semibold px-1.5 py-0.5 rounded-full ml-1">Pro</span>}
                     </button>
                     <div className="relative group">
                         <button

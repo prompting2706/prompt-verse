@@ -168,10 +168,9 @@
         "Mesajlaşma"
       ],
       "creator": [
-        "150 prompt depolama",
+        "50 prompt depolama",
         "Sınırsız proje",
-        "Arşiv özelliği",
-        "AI başlık önerisi",
+        "15 prompt arşivleme",
         "Versiyon geçmişi",
         "Export / Import",
         "Collaborator daveti (2 kişi/prompt)",
@@ -180,8 +179,10 @@
       "pro": [
         "Sınırsız prompt depolama",
         "Tüm Creator özellikleri",
+        "AI başlık önerisi",
+        "AI prompt geliştirme",
         "Marketplace'te satış (%15 komisyon)",
-        "5 aktif kampanya",
+        "Sınırsız kampanya",
         "Analytics dashboard",
         "Özel mağaza sayfası",
         "Collaborator daveti (10 kişi/prompt)",

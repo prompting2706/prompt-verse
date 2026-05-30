@@ -1,32 +1,41 @@
 import { supabase } from './supabase';
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
 
-function validateFile(file: File): void {
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    throw new Error('Desteklenmeyen dosya türü. Yalnızca JPG, PNG, GIF, WebP ve SVG yüklenebilir.');
+function validateImageFile(file: File): void {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error('Desteklenmeyen görsel türü. Yalnızca JPG, PNG, GIF, WebP ve SVG yüklenebilir.');
   }
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error('Dosya boyutu 5 MB\'ı aşamaz.');
+  if (file.size > MAX_IMAGE_SIZE) {
+    throw new Error('Görsel dosyası 5 MB\'ı aşamaz.');
+  }
+}
+
+function validateMediaFile(file: File): void {
+  const isImage = ALLOWED_IMAGE_TYPES.includes(file.type);
+  const isVideo = ALLOWED_VIDEO_TYPES.includes(file.type) || file.type.startsWith('video/');
+  if (!isImage && !isVideo) {
+    throw new Error('Desteklenmeyen dosya türü. Görsel (JPG/PNG/GIF/WebP) veya video (MP4/WebM) yüklenebilir.');
+  }
+  if (isImage && file.size > MAX_IMAGE_SIZE) {
+    throw new Error('Görsel dosyası 5 MB\'ı aşamaz.');
+  }
+  if (isVideo && file.size > MAX_VIDEO_SIZE) {
+    throw new Error('Video dosyası 50 MB\'ı aşamaz.');
   }
 }
 
 function safePath(userId: string, file: File): string {
-  const mimeToExt: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/gif': 'gif',
-    'image/webp': 'webp',
-    'image/svg+xml': 'svg',
-  };
-  const ext = mimeToExt[file.type] ?? 'bin';
+  const ext = file.name.split('.').pop() ?? 'bin';
   return `${userId}/${Date.now()}.${ext}`;
 }
 
 export const storageService = {
   async uploadPostMedia(userId: string, file: File): Promise<string> {
-    validateFile(file);
+    validateMediaFile(file);
     const path = safePath(userId, file);
     const { error } = await supabase.storage.from('post-media').upload(path, file);
     if (error) throw error;
@@ -35,11 +44,20 @@ export const storageService = {
   },
 
   async uploadCampaignCreative(userId: string, file: File): Promise<string> {
-    validateFile(file);
+    validateMediaFile(file);
     const path = safePath(userId, file);
     const { error } = await supabase.storage.from('campaign-creatives').upload(path, file);
     if (error) throw error;
     const { data } = supabase.storage.from('campaign-creatives').getPublicUrl(path);
+    return data.publicUrl;
+  },
+
+  async uploadProductImage(userId: string, file: File): Promise<string> {
+    validateImageFile(file);
+    const path = safePath(userId, file);
+    const { error } = await supabase.storage.from('product-images').upload(path, file);
+    if (error) throw error;
+    const { data } = supabase.storage.from('product-images').getPublicUrl(path);
     return data.publicUrl;
   },
 };

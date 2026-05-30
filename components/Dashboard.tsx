@@ -367,6 +367,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, title, prompts, projects, o
             key={prompt.id}
             user={user}
             prompt={prompt}
+            projects={projects}
             onSelect={() => onSelectPrompt(prompt)}
             isArchived={isArchivedView}
             onUnarchive={onUnarchivePrompt}

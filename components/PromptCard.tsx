@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type Prompt, OutputType, type User } from '../types';
-import { ImageIcon, VideoIcon, CodeIcon, AudioIcon, TextIcon, HeartIcon, ZapIcon, UnarchiveIcon, TrashIcon, FileIcon, ArchiveIcon, ShareUserIcon, UsersIcon } from './icons/Icons';
+import { type Prompt, OutputType, type User, type Project } from '../types';
+import { ImageIcon, VideoIcon, CodeIcon, AudioIcon, TextIcon, ZapIcon, UnarchiveIcon, TrashIcon, FileIcon, ArchiveIcon, ShareUserIcon, UsersIcon } from './icons/Icons';
 
 interface PromptCardProps {
   prompt: Prompt;
   user: User;
+  projects?: Project[];
   onSelect: () => void;
   isArchived?: boolean;
   onUnarchive?: (promptId: string) => void;
@@ -29,7 +30,7 @@ const OutputTypeIcon: React.FC<{ type: OutputType }> = ({ type }) => {
   return <div className="p-1.5 bg-gray-200 rounded-full">{iconMap[type]}</div>;
 };
 
-const PromptCard: React.FC<PromptCardProps> = ({ prompt, user, onSelect, isArchived, onUnarchive, onDelete, onArchive, onOpenShareModal, hideStats }) => {
+const PromptCard: React.FC<PromptCardProps> = ({ prompt, user, projects, onSelect, isArchived, onUnarchive, onDelete, onArchive, onOpenShareModal, hideStats }) => {
   const { t } = useTranslation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const firstOutput = prompt.outputs[0];
@@ -38,6 +39,9 @@ const PromptCard: React.FC<PromptCardProps> = ({ prompt, user, onSelect, isArchi
   const variableCount = hasVariables
     ? [...new Set([...prompt.promptText.matchAll(/\{\{([^}]+)\}\}/g)].map(m => m[1].trim()))].length
     : 0;
+  const projectName = prompt.projectId && projects
+    ? projects.find(p => p.id === prompt.projectId)?.name
+    : null;
 
   return (
     <div
@@ -113,18 +117,17 @@ const PromptCard: React.FC<PromptCardProps> = ({ prompt, user, onSelect, isArchi
         </div>
 
         <div className="flex justify-between items-center text-sm text-gray-500 mt-auto pt-2 border-t border-gray-100">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+                {projectName && (
+                    <span className="text-xs bg-orange-50 text-orange-600 border border-orange-100 px-2 py-0.5 rounded-full font-medium truncate max-w-[100px]" title={projectName}>
+                        📁 {projectName}
+                    </span>
+                )}
                 {!hideStats && (
-                    <>
-                        <div className="flex items-center gap-1" title="Likes">
-                            <HeartIcon />
-                            <span>{prompt.likes?.length ?? 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1" title="Usage Count">
-                            <ZapIcon />
-                            <span>{prompt.usageCount}</span>
-                        </div>
-                    </>
+                    <div className="flex items-center gap-1" title="Usage Count">
+                        <ZapIcon />
+                        <span>{prompt.usageCount}</span>
+                    </div>
                 )}
             </div>
             <div className="flex items-center gap-2">

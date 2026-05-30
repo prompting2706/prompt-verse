@@ -168,10 +168,9 @@
         "Messaging"
       ],
       "creator": [
-        "150 prompt storage",
+        "50 prompt storage",
         "Unlimited projects",
-        "Archive feature",
-        "AI title suggestion",
+        "Archive up to 15 prompts",
         "Version history",
         "Export / Import",
         "Collaborator invite (2 per prompt)",
@@ -180,8 +179,10 @@
       "pro": [
         "Unlimited prompt storage",
         "All Creator features",
+        "AI title suggestion",
+        "AI prompt optimization",
         "Sell on Marketplace (15% commission)",
-        "5 active campaigns",
+        "Unlimited campaigns",
         "Analytics dashboard",
         "Custom store page",
         "Collaborator invite (10 per prompt)",

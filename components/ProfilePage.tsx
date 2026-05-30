@@ -18,9 +18,10 @@ interface ProfilePageProps {
     onCreatePost: (postData: PostData) => void;
     onMessageUser: (userId: string) => void;
     onRequestVerification?: () => void;
+    onDeletePost?: (postId: string) => void;
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, posts, onFollowUser, onLikePost, onAddComment, onFavoritePost, onNavigate, onCreatePost, onMessageUser, onRequestVerification }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, posts, onFollowUser, onLikePost, onAddComment, onFavoritePost, onNavigate, onCreatePost, onMessageUser, onRequestVerification, onDeletePost }) => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     
     const userPosts = posts.filter(p => p.authorId === profileUser.id)
@@ -50,6 +51,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
                                 <p className="text-xl font-bold">{profileUser.followers?.length || 0}</p>
                                 <p className="text-sm text-gray-500">Followers</p>
                             </div>
+                            {isOwnProfile && (
+                                <div className="text-center">
+                                    <p className="text-xl font-bold">{profileUser.following?.length || 0}</p>
+                                    <p className="text-sm text-gray-500">Following</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                     {isOwnProfile && (
@@ -115,7 +122,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
                  <div className="max-w-2xl mx-auto space-y-8">
                     {userPosts.length > 0 ? (
                         userPosts.map(post => (
-                            <PostItem 
+                            <PostItem
                                 key={post.id}
                                 post={post}
                                 currentUser={currentUser}
@@ -124,6 +131,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profileUser, currentUser, pos
                                 onFollow={onFollowUser}
                                 onFavorite={onFavoritePost}
                                 onNavigate={onNavigate}
+                                onDelete={isOwnProfile ? onDeletePost : undefined}
                             />
                         ))
                     ) : (
