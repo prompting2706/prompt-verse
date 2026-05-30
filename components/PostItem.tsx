@@ -1,9 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { type Post, type User, type View } from '../types';
 import { HeartIcon, CommentIcon, ShareIcon, BookmarkIcon } from './icons/Icons';
 import { toast } from '../utils/toast';
-import { SPONSORED_LISTING_OPTIONS } from '../constants';
+
+const AUDIENCES = [
+  { id: 'general',   label: 'Genel Kitle',      cpm: 2.0,  desc: 'Tüm kullanıcılar' },
+  { id: 'creators',  label: 'İçerik Üreticileri', cpm: 3.5,  desc: 'Sosyal medya & içerik odaklı' },
+  { id: 'marketers', label: 'Pazarlamacılar',    cpm: 4.5,  desc: 'Dijital pazarlama profesyonelleri' },
+  { id: 'devs',      label: 'Geliştiriciler',    cpm: 5.5,  desc: 'Yazılım & teknoloji topluluğu' },
+  { id: 'founders',  label: 'Girişimciler',      cpm: 6.0,  desc: 'Startup & iş dünyası' },
+  { id: 'artists',   label: 'AI Sanatçıları',    cpm: 7.5,  desc: 'AI görsel & yaratıcı topluluk' },
+];
 
 interface PostItemProps {
   post: Post;
@@ -20,6 +28,20 @@ const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onCommen
   const [commentText, setCommentText] = useState('');
   const [showAllComments, setShowAllComments] = useState(false);
   const [showBoostModal, setShowBoostModal] = useState(false);
+  const [boostBudget, setBoostBudget] = useState('10');
+  const [boostAudience, setBoostAudience] = useState('general');
+  const [boostDuration, setBoostDuration] = useState(7);
+
+  const boostEstimate = useMemo(() => {
+    const budget = parseFloat(boostBudget) || 0;
+    const audience = AUDIENCES.find(a => a.id === boostAudience) ?? AUDIENCES[0];
+    const impressions = budget > 0 ? Math.round((budget / audience.cpm) * 1000) : 0;
+    const low = Math.round(impressions * 0.8);
+    const high = Math.round(impressions * 1.2);
+    const dailyLow = Math.round(low / boostDuration);
+    const dailyHigh = Math.round(high / boostDuration);
+    return { impressions, low, high, dailyLow, dailyHigh };
+  }, [boostBudget, boostAudience, boostDuration]);
 
   const isLiked = post.likes.includes(currentUser.id);
   const isFollowing = currentUser.following?.includes(post.authorId);
@@ -168,30 +190,119 @@ const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onCommen
       {/* Boost Post Modal */}
       {showBoostModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowBoostModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-1">🚀 Gönderiyi Öne Çıkart</h3>
-            <p className="text-sm text-gray-500 mb-5">Gönderini keşfet akışında daha fazla kişiye ulaştır.</p>
-            <div className="space-y-3">
-              {SPONSORED_LISTING_OPTIONS.map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => {
-                    toast.success(`${opt.label} boost planı seçildi! Ödeme entegrasyonu yakında aktif olacak.`);
-                    setShowBoostModal(false);
-                  }}
-                  className={`w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-colors text-left ${opt.popular ? 'border-brand-orange bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}
-                >
-                  <div>
-                    <p className="font-semibold text-sm">{opt.label}{opt.popular && <span className="ml-2 text-xs bg-brand-orange text-white px-1.5 py-0.5 rounded-full">Popüler</span>}</p>
-                    <p className="text-xs text-gray-500">{opt.description}</p>
-                  </div>
-                  <span className="font-bold text-brand-green text-sm">${opt.price}</span>
-                </button>
-              ))}
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold">🚀 Gönderiyi Öne Çıkart</h3>
+              <p className="text-sm text-gray-500 mt-0.5">Bütçe ve hedef kitlenizi girin, tahmini gösterimi görün.</p>
             </div>
-            <button onClick={() => setShowBoostModal(false)} className="mt-4 w-full text-sm text-gray-500 hover:text-gray-700 py-2">
-              İptal
-            </button>
+
+            <div className="px-6 py-5 space-y-5">
+              {/* Budget */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bütçe ($)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">$</span>
+                  <input
+                    type="number"
+                    min="3"
+                    step="1"
+                    value={boostBudget}
+                    onChange={e => setBoostBudget(e.target.value)}
+                    className="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-brand-orange focus:border-brand-orange"
+                    placeholder="10"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-400">Minimum $3</p>
+              </div>
+
+              {/* Target Audience */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Hedef Kitle</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {AUDIENCES.map(a => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setBoostAudience(a.id)}
+                      className={`text-left px-3 py-2.5 rounded-xl border-2 transition-colors ${
+                        boostAudience === a.id
+                          ? 'border-brand-orange bg-orange-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <p className="text-xs font-semibold text-gray-800">{a.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{a.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Duration */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Süre</label>
+                <div className="flex gap-2">
+                  {[3, 7, 14, 30].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setBoostDuration(d)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                        boostDuration === d
+                          ? 'border-brand-orange bg-orange-50 text-brand-orange'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      {d}g
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Estimated Impressions */}
+              <div className={`rounded-xl p-4 ${boostEstimate.impressions > 0 ? 'bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100' : 'bg-gray-50 border border-gray-100'}`}>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tahmini Gösterim</p>
+                {boostEstimate.impressions > 0 ? (
+                  <>
+                    <p className="text-2xl font-bold text-brand-orange">
+                      {boostEstimate.low.toLocaleString()} – {boostEstimate.high.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Günlük ~{boostEstimate.dailyLow.toLocaleString()}–{boostEstimate.dailyHigh.toLocaleString()} kişiye ulaşır · {boostDuration} gün boyunca
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      * Tahminler hedef kitleye ve içerik kalitesine göre ±%20 değişebilir.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-400">Bütçe girin ve hedef kitle seçin</p>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 pb-5 flex gap-3">
+              <button
+                onClick={() => setShowBoostModal(false)}
+                className="flex-1 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => {
+                  if (!boostBudget || parseFloat(boostBudget) < 3) {
+                    toast.error('Minimum bütçe $3 olmalıdır.');
+                    return;
+                  }
+                  toast.success(`Kampanya oluşturuldu! $${boostBudget} bütçeyle ${boostDuration} gün boyunca yayınlanacak. (Ödeme entegrasyonu yakında)`);
+                  setShowBoostModal(false);
+                }}
+                disabled={!boostBudget || parseFloat(boostBudget) < 3}
+                className="flex-1 py-2.5 text-sm font-semibold text-white bg-brand-orange rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                🚀 Öne Çıkart — ${boostBudget || '0'}
+              </button>
+            </div>
           </div>
         </div>
       )}
