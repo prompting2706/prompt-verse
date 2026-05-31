@@ -59,6 +59,7 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onSave, onCance
             setCreativeUrl(campaignToEdit.creativeUrl);
             setCreativeType(campaignToEdit.creativeType);
             setSelectedPromptIds(campaignToEdit.promptIds);
+            if (campaignToEdit.purpose) setPurpose(campaignToEdit.purpose);
         } else {
             const today = new Date();
             const nextWeek = new Date();

@@ -62,8 +62,8 @@ const App: React.FC = () => {
     const hash = window.location.hash.replace('#', '');
     if (hash === 'explore') return { type: 'explore', payload: null };
     if (hash === 'marketplace') return { type: 'marketplace', payload: null };
-    // Just avoid locking in 'dashboard' blindly for prompt routes, so previousView can stay null initially.
-    if (hash.startsWith('prompt/')) return { type: 'promptDetail', payload: null as any };
+    // Fall back to dashboard on initial load; handleHashChange fires immediately after mount and corrects the view.
+    if (hash.startsWith('prompt/')) return { type: 'dashboard', payload: null };
     return { type: 'dashboard', payload: null };
   });
   const [previousView, setPreviousView] = useState<View | null>(null);
@@ -1114,7 +1114,7 @@ const App: React.FC = () => {
   const handleSendMessage = (conversationId: string, content: string, _receiverId: string) => {
     const now = new Date().toISOString();
     // Snapshot previous state for rollback
-    let prevConversations: typeof conversations;
+    let prevConversations: typeof conversations = conversations;
     setConversations(prev => {
       prevConversations = prev;
       return prev.map(c =>
