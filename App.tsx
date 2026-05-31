@@ -34,7 +34,7 @@ import PrivacyPage from './components/PrivacyPage';
 import TermsPage from './components/TermsPage';
 import ToastContainer from './components/ToastContainer';
 
-import { MOCK_USER, MOCK_SYSTEM_PROMPTS, PLAN_LIMITS, MOCK_COUPONS } from './constants';
+import { MOCK_USER, MOCK_SYSTEM_PROMPTS, PLAN_LIMITS, MOCK_COUPONS, MARKETPLACE_COMMISSION_RATE } from './constants';
 import { type Project, type Prompt, type User, type View, type CartItem, MembershipType, type Order, type MarketplaceItem, type Collaborator, type Post, type Campaign, type Notification, type Conversation, type ReferralRecord, type Coupon, type CustomOrder, type CustomOrderStatus } from './types';
 
 import { type MarketplaceItemData } from './components/AddProductModal';
@@ -184,9 +184,17 @@ const App: React.FC = () => {
         setView({ type: 'favorites', payload: null });
       } else if (hash.startsWith('store/')) {
         const sellerId = hash.split('/')[1];
-        const itemFromSeller = marketplaceItems.find(i => i.sellerId === sellerId);
-        if (itemFromSeller) {
-          setView({ type: 'publicStore', payload: { sellerId, sellerName: itemFromSeller.seller.name, avatarUrl: itemFromSeller.seller.avatarUrl, verificationStatus: itemFromSeller.seller.verificationStatus } });
+        if (sellerId) {
+          const itemFromSeller = marketplaceItems.find(i => i.sellerId === sellerId);
+          setView({
+            type: 'publicStore',
+            payload: {
+              sellerId,
+              sellerName: itemFromSeller?.seller.name ?? '',
+              avatarUrl: itemFromSeller?.seller.avatarUrl ?? '',
+              verificationStatus: itemFromSeller?.seller.verificationStatus,
+            },
+          });
         } else {
           setView({ type: 'notFound', payload: null });
         }
@@ -575,7 +583,8 @@ const App: React.FC = () => {
       : 0;
     const total = Math.max(0, subtotal - discountAmount);
 
-    const commissionRate = PLAN_LIMITS[MembershipType.STARTER].commissionRate;
+    // Commission rate is seller-plan-dependent; use the base rate for client-side records.
+    // Actual payout is computed server-side where the seller's plan is authoritative.
     const orderRows = cart.map(item => ({
       buyer_id: user.id,
       seller_id: item.product.sellerId,
@@ -583,8 +592,8 @@ const App: React.FC = () => {
       quantity: item.quantity,
       unit_price: item.product.price,
       total_price: item.product.price * item.quantity,
-      commission_rate: commissionRate,
-      net_amount: item.product.price * item.quantity * (1 - commissionRate),
+      commission_rate: MARKETPLACE_COMMISSION_RATE,
+      net_amount: item.product.price * item.quantity * (1 - MARKETPLACE_COMMISSION_RATE),
       status: 'completed',
     }));
 
@@ -607,8 +616,6 @@ const App: React.FC = () => {
     cart.forEach(item => {
       if (item.product.sellerId !== user.id) {
         const grossAmount = item.product.price * item.quantity;
-        const commissionRate = PLAN_LIMITS[MembershipType.STARTER].commissionRate;
-        const netAmount = grossAmount * (1 - commissionRate);
         newNotifications.push({
           id: `notif-${Date.now()}-${Math.random()}`,
           userId: item.product.sellerId,
@@ -618,7 +625,7 @@ const App: React.FC = () => {
           type: 'sale',
           targetType: 'marketplace_item',
           targetId: item.product.id,
-          targetPreview: `Sold ${item.quantity}x ${item.product.title} — You earned $${netAmount.toFixed(2)} (after ${commissionRate * 100}% commission)`,
+          targetPreview: `Sold ${item.quantity}x ${item.product.title} — Gross $${grossAmount.toFixed(2)}`,
           createdAt: new Date().toISOString(),
           isRead: false,
         });
@@ -762,6 +769,13 @@ const App: React.FC = () => {
   };
 
   const handleDuplicatePrompt = async (prompt: Prompt) => {
+    const limit = PLAN_LIMITS[user.membership].promptLimit;
+    const ownedCount = [...prompts, ...archivedPrompts].filter(p => p.ownerId === user.id).length;
+    if (isFinite(limit) && ownedCount >= limit) {
+      toast.warning(`${limit} prompt limitine ulaştınız. Kopyalama yapabilmek için planınızı yükseltin.`);
+      navigate({ type: 'upgrade', payload: null });
+      return;
+    }
     try {
       const created = await promptService.create({
         user_id: user.id,
@@ -1014,6 +1028,7 @@ const App: React.FC = () => {
           is_active: campaignData.status !== 'paused',
           creative_type: campaignData.creativeType,
           creative_url: campaignData.creativeUrl,
+          purpose: campaignData.purpose ?? 'social',
         });
         setCampaigns(prev => {
           const newCampaigns = [...prev];
@@ -1039,6 +1054,7 @@ const App: React.FC = () => {
           is_active: campaignData.status !== 'paused',
           creative_type: campaignData.creativeType,
           creative_url: campaignData.creativeUrl,
+          purpose: campaignData.purpose ?? 'social',
         });
         const newCampaign = mapDbCampaign(created as Record<string, any>);
         setCampaigns(prev => [newCampaign, ...prev]);
@@ -1097,25 +1113,31 @@ const App: React.FC = () => {
 
   const handleSendMessage = (conversationId: string, content: string, _receiverId: string) => {
     const now = new Date().toISOString();
-    // Optimistic update
-    setConversations(prev => prev.map(c =>
-      c.id === conversationId
-        ? {
-            ...c,
-            updatedAt: now,
-            lastMessage: {
-              id: Date.now().toString(),
-              senderId: user.id,
-              receiverId: _receiverId,
-              content,
-              timestamp: now,
-              isRead: true,
-            },
-          }
-        : c
-    ));
-    // Persist to DB (fire-and-forget; not critical to await)
-    void messageService.sendMessage({ conversationId, senderId: user.id, text: content }).catch(() => {});
+    // Snapshot previous state for rollback
+    let prevConversations: typeof conversations;
+    setConversations(prev => {
+      prevConversations = prev;
+      return prev.map(c =>
+        c.id === conversationId
+          ? {
+              ...c,
+              updatedAt: now,
+              lastMessage: {
+                id: Date.now().toString(),
+                senderId: user.id,
+                receiverId: _receiverId,
+                content,
+                timestamp: now,
+                isRead: true,
+              },
+            }
+          : c
+      );
+    });
+    messageService.sendMessage({ conversationId, senderId: user.id, text: content }).catch(() => {
+      setConversations(prevConversations);
+      toast.error('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+    });
   };
 
   const handleCreateConversation = async (participantIds: string[]): Promise<string> => {

@@ -33,7 +33,7 @@ export const authService = {
         .from('profiles')
         .select('id')
         .eq('referral_code', referralCode.toUpperCase())
-        .single();
+        .maybeSingle();
 
       if (referrer) {
         await supabase.from('referrals').insert({

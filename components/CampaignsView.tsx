@@ -12,13 +12,11 @@ interface CampaignsListProps {
 }
 
 const CampaignsList: React.FC<CampaignsListProps> = ({ campaigns, onNavigate, user }) => {
-  const canRunCampaigns = PLAN_LIMITS[user.membership].maxCampaigns > 0;
+  // All users can create social campaigns; marketplace campaigns require canSell (Pro+).
+  // The actual restriction is enforced in handleSaveCampaign in App.tsx.
+  const canRunCampaigns = true;
 
   const handleCreateNew = () => {
-    if (!canRunCampaigns) {
-      onNavigate({ type: 'upgrade', payload: null });
-      return;
-    }
     onNavigate({ type: 'createCampaign', payload: null });
   };
 

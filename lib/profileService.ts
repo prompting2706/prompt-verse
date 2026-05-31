@@ -6,7 +6,7 @@ export const profileService = {
       .from('profiles')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return data;
   },
@@ -16,7 +16,7 @@ export const profileService = {
       .from('profiles')
       .select('*')
       .eq('username', username)
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return data;
   },

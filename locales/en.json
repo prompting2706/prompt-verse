@@ -78,7 +78,6 @@
     "promptLimitReached": "You've reached your prompt limit!",
     "promptUsage": "Prompt Usage: {{count}} / {{limit}}",
     "upgradePlan": "Upgrade Plan",
-    "collabPerson": "Person",
     "collabPeople": "People",
     "filterDateToday": "Today",
     "filterDateWeek": "This Week",

@@ -120,7 +120,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, title, prompts, projects, o
         prompt.description.toLowerCase().includes(searchLower) ||
         prompt.tags.some(tag => tag.toLowerCase().includes(searchLower));
 
-      const matchesProject = selectedProjects.length === 0 || selectedProjects.includes(prompt.projectId);
+      const matchesProject = selectedProjects.length === 0 ||
+        (prompt.projectId !== null && selectedProjects.includes(prompt.projectId));
       const matchesTags = selectedTags.length === 0 || selectedTags.every(tag => prompt.tags.includes(tag));
       const matchesOutputTypes = selectedOutputTypes.length === 0 || prompt.outputs.some(out => selectedOutputTypes.includes(out.type));
 
@@ -177,10 +178,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, title, prompts, projects, o
   ];
 
   const promptLimit = PLAN_LIMITS[user.membership].promptLimit;
-  const isLimited = promptLimit !== Infinity;
-  const usagePercent = isLimited ? Math.min((prompts.length / promptLimit) * 100, 100) : 0;
+  const isLimited = isFinite(promptLimit);
+  const ownedCount = prompts.filter(p => p.ownerId === user.id).length;
+  const usagePercent = isLimited ? Math.min((ownedCount / promptLimit) * 100, 100) : 0;
   const isNearLimit = isLimited && usagePercent >= 80;
-  const isAtLimit = isLimited && prompts.length >= promptLimit;
+  const isAtLimit = isLimited && ownedCount >= promptLimit;
 
   return (
     <div>
@@ -203,7 +205,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, title, prompts, projects, o
             <span className={`text-xs font-medium ${isAtLimit ? 'text-red-600' : isNearLimit ? 'text-brand-orange' : 'text-gray-500'}`}>
               {isAtLimit
                 ? t('dashboard.promptLimitReached')
-                : t('dashboard.promptUsage', { count: prompts.length, limit: promptLimit })}
+                : t('dashboard.promptUsage', { count: ownedCount, limit: promptLimit })}
             </span>
             {(isNearLimit || isAtLimit) && (
               <button

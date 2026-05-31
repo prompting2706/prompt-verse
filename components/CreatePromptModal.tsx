@@ -44,7 +44,7 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
       setDescription('');
       setPromptText('');
       setTags('');
-      setProjectId('');
+      setProjectId(null);
       setOutputs([]);
     }
     setErrorMsg(null);

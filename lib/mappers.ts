@@ -156,6 +156,7 @@ export function mapDbCampaign(row: Row): Campaign {
     status: row.status ?? (row.is_active === false ? 'paused' : 'active'),
     creativeType: row.creative_type ?? 'image',
     creativeUrl: row.creative_url ?? '',
+    purpose: (row.purpose as 'marketplace' | 'social') ?? 'social',
     // DB uses `impressions` / `clicks`, not total_impressions / total_sales
     totalImpressions: row.total_impressions ?? row.impressions ?? 0,
     totalSales: row.total_sales ?? row.clicks ?? 0,
