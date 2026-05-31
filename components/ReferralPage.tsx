@@ -71,9 +71,11 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ user, referrals }) => {
             </div>
             <h1 className="text-2xl font-bold">{t('referral.pageTitle')}</h1>
           </div>
-          <p className="text-orange-100 mb-6 max-w-md"
-            dangerouslySetInnerHTML={{ __html: t('referral.heroCopy', { reward: rewardAmount }) }}
-          />
+          <p className="text-orange-100 mb-6 max-w-md">
+            Arkadaşlarını PromptVerse'e davet et.{' '}
+            Her başarılı davet için <strong className="text-white">${rewardAmount} kredi</strong> kazan.{' '}
+            Arkadaşın da ilk alışverişinde <strong className="text-white">%10 indirim</strong> kazanır.
+          </p>
 
           {/* Referral code */}
           <div className="flex flex-col sm:flex-row gap-3">
@@ -108,7 +110,7 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ user, referrals }) => {
           {/* Plan reward note */}
           <p className="mt-4 text-xs text-orange-200 flex items-center gap-1.5">
             <CrownIcon className="w-3.5 h-3.5" />
-            <span dangerouslySetInnerHTML={{ __html: t('referral.planRewardNote', { plan: planLabel, reward: rewardAmount }) }} />
+            <span>{planLabel} planınla davet başına <strong>${rewardAmount}</strong> kazanıyorsun.</span>
             {user.membership !== MembershipType.TEAM && (
               <span> {t('referral.planUpgradeHint', { reward: REWARD_PER_PLAN[MembershipType.TEAM] })}</span>
             )}

@@ -74,6 +74,7 @@ export interface ReferralRecord {
   joinedAt: string;
   status: 'pending' | 'converted';
   earnedAmount: number;
+  convertedPlan?: MembershipType;
 }
 
 export interface Coupon {

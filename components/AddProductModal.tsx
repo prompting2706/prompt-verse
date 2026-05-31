@@ -351,7 +351,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                         {suggestedPrice !== null && (
                             <p className="mt-1 text-xs text-brand-orange flex items-center gap-1 font-medium">
                                 <SparklesIcon className="w-3 h-3" />
-                                Similar prompts sell for ~${suggestedPrice.toFixed(2)}.
+                                Suggested: similar prompts sell for ~${suggestedPrice.toFixed(2)}.
                             </p>
                         )}
                     </div>

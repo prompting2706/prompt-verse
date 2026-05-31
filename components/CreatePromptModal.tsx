@@ -85,7 +85,6 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
       const suggested = await suggestTitleForPrompt(promptText);
       setTitle(suggested);
     } catch (error) {
-      console.error("Failed to suggest title", error);
       setErrorMsg(error instanceof Error ? error.message : "Network error occurred.");
     } finally {
       setIsSuggestingTitle(false);

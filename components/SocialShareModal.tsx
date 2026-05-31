@@ -214,7 +214,7 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ prompt, onClose }) 
         }
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
-          console.error('Share failed:', err);
+          // Share API failed or was cancelled — no action needed
         }
       } finally {
         setIsSharing(false);

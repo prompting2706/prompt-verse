@@ -88,6 +88,7 @@ const CreateBundleModal: React.FC<CreateBundleModalProps> = ({ isOpen, onClose, 
       title: title.trim(),
       description: description.trim(),
       coverImage: finalCover || '',
+      // Empty string means no cover — marketplace renders a default gradient placeholder
       promptIds: selectedIds,
       price: priceNum,
       originalPrice: origNum > priceNum ? origNum : undefined,
