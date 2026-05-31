@@ -83,6 +83,15 @@ export const authService = {
     return data.user;
   },
 
+  async signInWithOAuth(provider: 'google' | 'apple' | 'azure') {
+    const redirectTo = `${window.location.origin}/`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo },
+    });
+    if (error) throw error;
+  },
+
   onAuthStateChange(callback: (event: string, session: Session | null) => void) {
     return supabase.auth.onAuthStateChange(callback);
   },

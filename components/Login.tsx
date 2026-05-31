@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { type View } from '../types';
 import { toast } from '../utils/toast';
 import { authService } from '../lib/auth';
+import OAuthButtons from './OAuthButtons';
 
 interface LoginProps {
   onLogin: () => void;
@@ -60,9 +61,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
         <h1 className="text-3xl font-bold text-center mb-2 text-brand-dark-gray">
           {forgotMode ? 'Reset Password' : t('login.title')}
         </h1>
-        <p className="text-center text-brand-medium-gray mb-8">
+        <p className="text-center text-brand-medium-gray mb-6">
           {forgotMode ? 'Enter your email to receive a reset link' : t('login.subtitle')}
         </p>
+
+        {!forgotMode && (
+          <>
+            <OAuthButtons label="Sign in" />
+            <div className="flex items-center gap-3 my-5">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400 font-medium">VEYA</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+          </>
+        )}
 
         {forgotMode ? (
           <form onSubmit={handleForgotPassword} className="space-y-6">

@@ -5,6 +5,7 @@ import { type View } from '../types';
 import { toast } from '../utils/toast';
 import { authService } from '../lib/auth';
 import { emailService } from '../lib/emailService';
+import OAuthButtons from './OAuthButtons';
 
 interface RegisterProps {
   onRegister: () => void;
@@ -54,7 +55,15 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onNavigate }) => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-orange-50 flex flex-col justify-center items-center">
       <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-lg border border-gray-200">
         <h1 className="text-3xl font-bold text-center mb-2 text-brand-dark-gray">{t('register.title')}</h1>
-        <p className="text-center text-brand-medium-gray mb-8">{t('register.subtitle')}</p>
+        <p className="text-center text-brand-medium-gray mb-6">{t('register.subtitle')}</p>
+
+        <OAuthButtons label="Sign up" />
+
+        <div className="flex items-center gap-3 my-5">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400 font-medium">VEYA E-POSTA İLE</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
