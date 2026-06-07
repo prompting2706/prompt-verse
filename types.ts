@@ -206,7 +206,7 @@ export interface Notification {
   actorId: string; // The user who performed the action
   actorName: string;
   actorAvatar: string;
-  type: 'like' | 'comment' | 'sale' | 'invite_collaborator' | 'commission_request' | 'commission_accepted' | 'commission_delivered' | 'commission_declined';
+  type: 'like' | 'comment' | 'mention' | 'sale' | 'invite_collaborator' | 'commission_request' | 'commission_accepted' | 'commission_delivered' | 'commission_declined';
   targetType: 'prompt' | 'post' | 'marketplace_item' | 'project';
   targetId: string;
   targetPreview: string; // A short preview of the prompt/post or comment
@@ -277,4 +277,5 @@ export type View =
   | { type: 'commissions', payload: null }
   | { type: 'privacy', payload: null }
   | { type: 'terms', payload: null }
-  | { type: 'notFound', payload: null };
+  | { type: 'notFound', payload: null }
+  | { type: 'resetPassword', payload: null };

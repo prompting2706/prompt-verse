@@ -13,7 +13,7 @@ export interface PostData {
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: PostData) => void;
+  onSave: (data: PostData) => void | Promise<void>;
   userId: string;
   initialCaption?: string;
 }
@@ -28,6 +28,15 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSa
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [error, setError] = useState('');
     const [uploading, setUploading] = useState(false);
+
+    // BUG: X button was calling onClose directly, leaving tags/error/media stale for next open
+    const handleClose = () => {
+        setCaption(initialCaption ?? '');
+        setTags('');
+        setError('');
+        handleRemoveMedia();
+        onClose();
+    };
     const videoRef = useRef<HTMLVideoElement>(null);
     const previewUrlRef = useRef<string | null>(null);
 
@@ -91,7 +100,13 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSa
             setUploading(false);
         }
 
-        onSave({ caption, tags: tags.split(',').map(tag => tag.trim()).filter(Boolean), imageUrl, videoUrl });
+        try {
+          await onSave({ caption, tags: tags.split(',').map(tag => tag.trim()).filter(Boolean), imageUrl, videoUrl });
+        } catch {
+          setError('Gönderi kaydedilirken hata oluştu. Lütfen tekrar deneyin.');
+          setUploading(false);
+          return;
+        }
         setCaption('');
         setTags('');
         handleRemoveMedia();
@@ -105,7 +120,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSa
             <div className="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col">
                 <div className="p-6 border-b flex justify-between items-center">
                     <h2 className="text-xl font-bold">Create a New Post</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><XIcon /></button>
+                    <button onClick={handleClose} className="text-gray-500 hover:text-gray-800"><XIcon /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="overflow-y-auto">
                     <div className="p-6 space-y-4">
@@ -190,7 +205,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSa
                     </div>
 
                     <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
-                        <button type="button" onClick={onClose} disabled={uploading} className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                        <button type="button" onClick={handleClose} disabled={uploading} className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
                             Cancel
                         </button>
                         <button type="submit" disabled={uploading} className="px-4 py-2 bg-brand-green border border-transparent rounded-md text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">

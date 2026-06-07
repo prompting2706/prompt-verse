@@ -1,12 +1,13 @@
 
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { type Prompt, type Project, OutputType, type PromptOutput } from '../types';
 import { suggestTitleForPrompt } from '../services/geminiService';
 import { SparklesIcon, XIcon, ImageIcon, VideoIcon, AudioIcon, FileIcon } from './icons/Icons';
 import { PLAN_LIMITS } from '../constants';
-
+import { useDebounce } from '../utils/debounce';
 import { calculateSimilarity } from '../utils/similarity';
+import { storageService } from '../lib/storageService';
 
 interface CreatePromptModalProps {
   isOpen: boolean;
@@ -26,9 +27,14 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
   const [tags, setTags] = useState('');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [outputs, setOutputs] = useState<PromptOutput[]>([]);
+  // BUG-008: map blobUrl → File so we can upload on submit and revoke on remove
+  const pendingFilesRef = useRef<Map<string, File>>(new Map());
   const [isSuggestingTitle, setIsSuggestingTitle] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [plagiarismWarning, setPlagiarismWarning] = useState<string | null>(null);
+  // BUG-024: debounce plagiarism check to avoid running on every keystroke
+  const debouncedPromptText = useDebounce(promptText, 500);
 
   useEffect(() => {
     if (promptToEdit) {
@@ -45,37 +51,39 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
       setPromptText('');
       setTags('');
       setProjectId(null);
+      // revoke any leftover blob URLs to free memory
+      for (const blobUrl of pendingFilesRef.current.keys()) URL.revokeObjectURL(blobUrl);
+      pendingFilesRef.current.clear();
       setOutputs([]);
     }
     setErrorMsg(null);
     setPlagiarismWarning(null);
   }, [promptToEdit, isOpen, projects]);
 
+  // BUG-024: use debouncedPromptText so this runs at most every 500ms, not on every keystroke
   useEffect(() => {
-    if (promptText.length > 15) {
+    if (debouncedPromptText.length > 15) {
       let highestSimilarity = 0;
       let mostSimilarTitle = '';
 
       allPrompts.forEach(p => {
-        // Don't compare with itself
         if (promptToEdit && p.id === promptToEdit.id) return;
-        
-        const sim = calculateSimilarity(promptText, p.promptText);
+        const sim = calculateSimilarity(debouncedPromptText, p.promptText);
         if (sim > highestSimilarity) {
           highestSimilarity = sim;
           mostSimilarTitle = p.title;
         }
       });
 
-      if (highestSimilarity > 80) { // 80% similarity threshold
+      if (highestSimilarity > 80) {
         setPlagiarismWarning(`High similarity (${highestSimilarity.toFixed(0)}%) detected with existing prompt "${mostSimilarTitle}".`);
       } else {
         setPlagiarismWarning(null);
       }
     } else {
-        setPlagiarismWarning(null);
+      setPlagiarismWarning(null);
     }
-  }, [promptText, allPrompts, promptToEdit]);
+  }, [debouncedPromptText, allPrompts, promptToEdit]);
 
   const handleSuggestTitle = useCallback(async () => {
     if (!promptText) return;
@@ -100,31 +108,67 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
         else if (file.type.startsWith('audio/')) type = OutputType.AUDIO;
         else type = OutputType.FILE;
         const blobUrl = URL.createObjectURL(file);
+        // BUG-008: key the file by its blob URL — index-stable even after removes
+        pendingFilesRef.current.set(blobUrl, file);
         setOutputs(prev => [...prev, { type, content: blobUrl, fileName: file.name }]);
       });
     }
   };
 
   const handleRemoveOutput = (indexToRemove: number) => {
-    setOutputs(prev => prev.filter((_, index) => index !== indexToRemove));
+    setOutputs(prev => {
+      const removed = prev[indexToRemove];
+      // BUG-008: revoke blob URL and remove from pending map
+      if (removed && removed.content.startsWith('blob:')) {
+        URL.revokeObjectURL(removed.content);
+        pendingFilesRef.current.delete(removed.content);
+      }
+      return prev.filter((_, i) => i !== indexToRemove);
+    });
   };
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // BUG-008: upload any pending local files to storage before saving
+    const hasPending = pendingFilesRef.current.size > 0;
+    let resolvedOutputs = outputs;
+    if (hasPending) {
+      setIsUploading(true);
+      setErrorMsg(null);
+      try {
+        const uploadResults = await Promise.all(
+          outputs.map(async (out) => {
+            const file = pendingFilesRef.current.get(out.content);
+            if (!file) return out; // already a real URL
+            const url = await storageService.uploadPromptOutput(currentUser.id, file);
+            URL.revokeObjectURL(out.content);
+            pendingFilesRef.current.delete(out.content);
+            return { ...out, content: url };
+          })
+        );
+        resolvedOutputs = uploadResults;
+        setOutputs(resolvedOutputs);
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : 'Dosya yüklenirken hata oluştu.');
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
     const isEdit = !!promptToEdit;
-    
     const newVersion = {
       id: `v-${Date.now()}`,
       promptText,
       createdAt: new Date().toISOString(),
       updatedBy: currentUser.id,
-      updatedByName: currentUser.name
+      updatedByName: currentUser.name,
     };
-
     const updatedVersions = isEdit
-       ? [newVersion, ...(promptToEdit.versions || [])]
-       : [newVersion];
+      ? [newVersion, ...(promptToEdit.versions || [])]
+      : [newVersion];
 
     const newPrompt: Prompt = {
       id: promptToEdit?.id || `prompt-${Date.now()}`,
@@ -133,13 +177,13 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
       promptText,
       tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
       projectId,
-      outputs: outputs,
+      outputs: resolvedOutputs,
       lastEdited: new Date().toISOString(),
       likes: promptToEdit?.likes || [],
       comments: promptToEdit?.comments || [],
       usageCount: promptToEdit?.usageCount || 0,
       versions: updatedVersions,
-      ownerId: promptToEdit?.ownerId || currentUser.id, // Use currentUser.id
+      ownerId: promptToEdit?.ownerId || currentUser.id,
       collaborators: promptToEdit?.collaborators || [],
     };
     onSave(newPrompt);
@@ -161,12 +205,12 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto">
+        <form onSubmit={(e) => void handleSubmit(e)} className="flex-grow overflow-y-auto">
             <div className="p-6 space-y-4">
                 <div>
                     <label htmlFor="title" className="block text-sm font-medium text-gray-700">Title</label>
                     <div className="mt-1 flex rounded-md shadow-sm">
-                        <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} className={`flex-1 block w-full min-w-0 ${canUseAITitle ? 'rounded-none rounded-l-md' : 'rounded-md'} border-gray-300 focus:ring-brand-orange focus:border-brand-orange sm:text-sm`} required />
+                        <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} maxLength={100} className={`flex-1 block w-full min-w-0 ${canUseAITitle ? 'rounded-none rounded-l-md' : 'rounded-md'} border-2 border-gray-300 bg-gray-50 focus:ring-brand-orange focus:border-brand-orange sm:text-sm`} required />
                         {canUseAITitle && (
                           <button type="button" onClick={handleSuggestTitle} disabled={isSuggestingTitle || !promptText} className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 text-sm disabled:opacity-50">
                             <SparklesIcon animate={isSuggestingTitle} />
@@ -192,7 +236,7 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
                         </code>{' '}
                         sözdizimini kullan
                     </p>
-                    <textarea id="promptText" value={promptText} onChange={e => setPromptText(e.target.value)} rows={5} className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${plagiarismWarning ? 'border-yellow-400 focus:ring-yellow-500 focus:border-yellow-500 bg-yellow-50' : 'border-gray-300 focus:ring-brand-orange focus:border-brand-orange'}`} required />
+                    <textarea id="promptText" value={promptText} onChange={e => setPromptText(e.target.value)} rows={5} maxLength={10000} className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${plagiarismWarning ? 'border-2 border-yellow-400 focus:ring-yellow-500 focus:border-yellow-500 bg-yellow-50' : 'border-2 border-gray-300 bg-gray-50 focus:ring-brand-orange focus:border-brand-orange'}`} required />
                     {/* Live variable detection */}
                     {(() => {
                         const vars = [...new Set([...promptText.matchAll(/\{\{([^}]+)\}\}/g)].map(m => m[1].trim()))];
@@ -214,17 +258,17 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
                 
                 <div>
                     <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description / Notes</label>
-                    <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm" />
+                    <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={3} maxLength={500} className="mt-1 block w-full rounded-md border-2 border-gray-300 bg-gray-50 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm" />
                 </div>
 
                  <div>
                     <label htmlFor="tags" className="block text-sm font-medium text-gray-700">Tags (comma-separated)</label>
-                    <input type="text" id="tags" value={tags} onChange={e => setTags(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm" />
+                    <input type="text" id="tags" value={tags} onChange={e => setTags(e.target.value)} className="mt-1 block w-full rounded-md border-2 border-gray-300 bg-gray-50 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm" />
                 </div>
 
                 <div>
                     <label htmlFor="project" className="block text-sm font-medium text-gray-700">Project <span className="text-gray-400 font-normal">(Optional)</span></label>
-                    <select id="project" value={projectId ?? ''} onChange={e => setProjectId(e.target.value || null)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm">
+                    <select id="project" value={projectId ?? ''} onChange={e => setProjectId(e.target.value || null)} className="mt-1 block w-full rounded-md border-2 border-gray-300 bg-gray-50 shadow-sm focus:ring-brand-orange focus:border-brand-orange sm:text-sm">
                         <option value="">— Proje seçme —</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
@@ -295,8 +339,10 @@ const CreatePromptModal: React.FC<CreatePromptModalProps> = ({ isOpen, onClose, 
                 )}
             </div>
             <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
-                <button type="button" onClick={onClose} className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-brand-green border border-transparent rounded-md text-sm font-medium text-white hover:bg-green-600">Save Prompt</button>
+                <button type="button" onClick={onClose} disabled={isUploading} className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={isUploading} className="px-4 py-2 bg-brand-green border border-transparent rounded-md text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isUploading ? 'Uploading files...' : 'Save Prompt'}
+                </button>
             </div>
         </form>
       </div>

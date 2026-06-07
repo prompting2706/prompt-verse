@@ -131,11 +131,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, title, prompts, projects, o
       else if (collabCount >= 3) collabCategory = '3+';
       const matchesCollaborators = selectedCollaboratorCounts.length === 0 || selectedCollaboratorCounts.includes(collabCategory);
 
+      // BUG: Math.ceil caused off-by-one; use midnight-based comparison instead
       let dateCategory = 'Older';
-      const lastEditedDate = new Date(prompt.lastEdited);
-      const now = new Date();
-      const diffDays = Math.ceil(Math.abs(now.getTime() - lastEditedDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays <= 1) dateCategory = 'Today';
+      const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+      const editedMidnight = new Date(prompt.lastEdited); editedMidnight.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((todayMidnight.getTime() - editedMidnight.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) dateCategory = 'Today';
       else if (diffDays <= 7) dateCategory = 'This Week';
       else if (diffDays <= 30) dateCategory = 'This Month';
       const matchesEditedDate = selectedEditedDates.length === 0 || selectedEditedDates.includes(dateCategory);

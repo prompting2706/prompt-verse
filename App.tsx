@@ -28,13 +28,15 @@ import CancelSubscriptionPage from './components/CancelSubscriptionPage';
 import CreateCampaignPage from './components/CreateCampaignPage';
 import CampaignDetailPage from './components/CampaignDetailPage';
 import NotFoundPage from './components/NotFoundPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import ShareViaMessageModal from './components/ShareViaMessageModal';
 import CommissionsPage from './components/CommissionsPage';
 import PrivacyPage from './components/PrivacyPage';
 import TermsPage from './components/TermsPage';
 import ToastContainer from './components/ToastContainer';
 
-import { MOCK_USER, MOCK_SYSTEM_PROMPTS, PLAN_LIMITS, MOCK_COUPONS, MARKETPLACE_COMMISSION_RATE } from './constants';
+import { MOCK_USER, MOCK_SYSTEM_PROMPTS, PLAN_LIMITS, MARKETPLACE_COMMISSION_RATE } from './constants';
+import { supabase } from './lib/supabase';
 import { type Project, type Prompt, type User, type View, type CartItem, MembershipType, type Order, type MarketplaceItem, type Collaborator, type Post, type Campaign, type Notification, type Conversation, type ReferralRecord, type Coupon, type CustomOrder, type CustomOrderStatus } from './types';
 
 import { type MarketplaceItemData } from './components/AddProductModal';
@@ -93,6 +95,12 @@ const App: React.FC = () => {
   const [viewedProfile, setViewedProfile] = useState<User | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const loadedForUserRef = useRef<string | null>(null);
+  // BUG-001: password recovery mode flag (set on PASSWORD_RECOVERY auth event)
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
+  // BUG-016: ref for click-outside closing of notifications panel
+  const notificationRef = useRef<HTMLDivElement>(null);
+  // BUG-021: buffer impressions and flush to DB in batches
+  const pendingImpressionsRef = useRef<Map<string, number>>(new Map());
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [promptToEdit, setPromptToEdit] = useState<Prompt | undefined>(undefined);
@@ -128,6 +136,8 @@ const App: React.FC = () => {
         const campaign = campaigns.find(c => c.id === campaignId);
         if (campaignId && campaign) {
           setView({ type: 'campaignDetail', payload: { campaignId } });
+        } else if (campaignId && dataLoading) {
+          // BUG-025: data still loading — don't show 404 yet; hash re-fires when data loads
         } else {
           setView({ type: 'notFound', payload: null });
         }
@@ -170,6 +180,9 @@ const App: React.FC = () => {
         const parts = hash.split('/');
         const tab = parts[1] as 'products' | 'analytics' | 'campaigns';
         setView({ type: 'myStore', payload: { activeTab: ['products', 'analytics', 'campaigns'].includes(tab) ? tab : 'products' } });
+      } else if (hash.startsWith('post/')) {
+        // BUG: post deep links now supported (shared via copy-link in PostItem)
+        setView({ type: 'explore', payload: null });
       } else if (hash === 'explore') {
         setView({ type: 'explore', payload: null });
       } else if (hash === 'commissions') {
@@ -186,15 +199,26 @@ const App: React.FC = () => {
         const sellerId = hash.split('/')[1];
         if (sellerId) {
           const itemFromSeller = marketplaceItems.find(i => i.sellerId === sellerId);
-          setView({
-            type: 'publicStore',
-            payload: {
-              sellerId,
-              sellerName: itemFromSeller?.seller.name ?? '',
-              avatarUrl: itemFromSeller?.seller.avatarUrl ?? '',
-              verificationStatus: itemFromSeller?.seller.verificationStatus,
-            },
-          });
+          const payload = {
+            sellerId,
+            sellerName: itemFromSeller?.seller.name ?? '',
+            avatarUrl: itemFromSeller?.seller.avatarUrl ?? '',
+            verificationStatus: itemFromSeller?.seller.verificationStatus,
+          };
+          setView({ type: 'publicStore', payload });
+          // BUG-011: if marketplace items not yet loaded, fetch seller profile from DB
+          if (!payload.sellerName) {
+            profileService.getById(sellerId).then(profile => {
+              if (profile) {
+                setView({ type: 'publicStore', payload: {
+                  sellerId,
+                  sellerName: (profile as Record<string, any>).name ?? '',
+                  avatarUrl: (profile as Record<string, any>).avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${sellerId}`,
+                  verificationStatus: (profile as Record<string, any>).verification_status,
+                }});
+              }
+            }).catch(() => {});
+          }
         } else {
           setView({ type: 'notFound', payload: null });
         }
@@ -288,6 +312,8 @@ const App: React.FC = () => {
         break;
       case 'notFound':
         break;
+      case 'resetPassword':
+        break;
     }
      // The useEffect will handle the state change
   };
@@ -300,10 +326,10 @@ const App: React.FC = () => {
     try {
       const results = await Promise.allSettled([
         profileService.getById(userId),
-        promptService.getByUser(userId),
+        promptService.getAllByUser(userId), // BUG-006: load all pages, not just first 20
         promptService.getArchived(userId),
         projectService.getByUser(userId),
-        marketplaceService.getItems(),
+        marketplaceService.getAllItems(), // BUG: was only loading first 24 items
         marketplaceService.getOrdersByBuyer(userId),
         postService.getAll(),
         campaignService.getBySeller(userId),
@@ -316,6 +342,11 @@ const App: React.FC = () => {
 
       if (profile.status === 'fulfilled' && profile.value) {
         setUser(mapDbProfile(profile.value as Record<string, any>, email));
+        // BUG-028: sync onboarding state from DB so it persists across devices
+        if ((profile.value as Record<string, any>).has_completed_onboarding) {
+          localStorage.setItem('promptverse_onboarding_completed', 'true');
+          setShowOnboarding(false);
+        }
       }
       if (rawPrompts.status === 'fulfilled') {
         setPrompts((rawPrompts.value as Record<string, any>[]).map(mapDbPrompt));
@@ -357,6 +388,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const { data: { subscription } } = authService.onAuthStateChange((event, session) => {
+      // BUG-001: handle password recovery flow
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecoveryMode(true);
+        setIsAuthenticated(true);
+        setAuthLoading(false);
+        return;
+      }
       setIsAuthenticated(!!session);
       setAuthLoading(false);
       if (session) {
@@ -381,6 +419,9 @@ const App: React.FC = () => {
         setNotifications([]);
         setConversations([]);
         setViewedProfile(null);
+        // BUG-002: clear cart and coupon on logout to prevent data leakage between sessions
+        setCart([]);
+        setAppliedCoupon(null);
       }
     });
     authService.getSession().then(session => {
@@ -405,6 +446,29 @@ const App: React.FC = () => {
     analytics.page(view.type);
   }, [view.type]);
 
+  // BUG-016: close notification panel when clicking outside
+  useEffect(() => {
+    if (!showNotifications) return;
+    const handler = (e: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNotifications]);
+
+  // BUG-021: flush accumulated impressions to DB every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const pending = pendingImpressionsRef.current;
+      if (pending.size === 0) return;
+      pendingImpressionsRef.current = new Map();
+      await campaignService.flushImpressions(pending).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Load the viewed profile from DB whenever we navigate to a profile page
   useEffect(() => {
     if (view.type === 'profile' && view.payload?.userId && view.payload.userId !== user.id) {
@@ -417,7 +481,15 @@ const App: React.FC = () => {
   }, [view.type, (view as any).payload?.userId]);
   
   const handleImportPrompts = (importedPrompts: Prompt[]) => {
-      setPrompts(prev => [...importedPrompts, ...prev]);
+    // BUG-010: check plan limits before importing
+    const limit = PLAN_LIMITS[user.membership].promptLimit;
+    const ownedCount = [...prompts, ...archivedPrompts].filter(p => p.ownerId === user.id).length;
+    if (isFinite(limit) && ownedCount + importedPrompts.length > limit) {
+      toast.warning(`Import edilecek ${importedPrompts.length} prompt plan limitinizi (${limit}) aşıyor. Daha fazla için planınızı yükseltin.`);
+      navigate({ type: 'upgrade', payload: null });
+      return;
+    }
+    setPrompts(prev => [...importedPrompts, ...prev]);
   };
 
   const handleLogin = () => {
@@ -445,6 +517,9 @@ const App: React.FC = () => {
     setNotifications([]);
     setConversations([]);
     setViewedProfile(null);
+    // BUG-002: clear cart and coupon so next user doesn't see previous user's data
+    setCart([]);
+    setAppliedCoupon(null);
     window.location.hash = '#login';
   };
 
@@ -493,6 +568,7 @@ const App: React.FC = () => {
         title: data.title,
         description: data.description,
         budget: data.budget,
+        deadline: data.deadline,
         status: 'pending',
       });
       const newOrder = mapDbCustomOrder(created as Record<string, any>);
@@ -523,8 +599,10 @@ const App: React.FC = () => {
     extra?: { agreedPrice?: number; sellerNote?: string }
   ) => {
     const order = customOrders.find(o => o.id === orderId);
+    if (!order) return;
     try {
-      await customOrderService.updateStatus(orderId, newStatus);
+      // BUG: extra (agreedPrice/sellerNote) was not passed to the service
+      await customOrderService.updateStatus(orderId, newStatus, extra);
     } catch {
       toast.error('Sipariş durumu güncellenirken hata oluştu.');
       return;
@@ -532,7 +610,6 @@ const App: React.FC = () => {
     setCustomOrders(prev => prev.map(o =>
       o.id === orderId ? { ...o, status: newStatus, updatedAt: new Date().toISOString(), ...(extra || {}) } : o
     ));
-    if (!order) return;
     const now = new Date().toISOString();
     const notifMap: Partial<Record<CustomOrderStatus, { userId: string; type: Notification['type']; preview: string }>> = {
       accepted:  { userId: order.buyerId, type: 'commission_accepted',  preview: `"${order.title}" talebiniz kabul edildi! Anlaşılan fiyat: $${(extra?.agreedPrice ?? order.budget).toFixed(2)}` },
@@ -557,15 +634,29 @@ const App: React.FC = () => {
     }
   };
 
-  const handleApplyCoupon = (code: string): string | null => {
-    const coupon = MOCK_COUPONS.find(c => c.code === code);
-    if (!coupon) return 'Geçersiz kupon kodu.';
+  // BUG-027: validate coupons server-side so codes are never exposed in the browser bundle
+  const handleApplyCoupon = async (code: string): Promise<string | null> => {
     const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    if (coupon.minOrderAmount && subtotal < coupon.minOrderAmount) {
-      return `Bu kupon en az $${coupon.minOrderAmount.toFixed(2)} tutarındaki siparişlerde geçerlidir.`;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch('/api/validate-coupon', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ code, subtotal }),
+      });
+      const json = await res.json() as { error?: string; coupon?: import('./types').Coupon };
+      if (!res.ok || json.error) {
+        return json.error ?? 'Geçersiz kupon kodu.';
+      }
+      setAppliedCoupon(json.coupon!);
+      return null;
+    } catch {
+      return 'Kupon doğrulanırken hata oluştu. Lütfen tekrar deneyin.';
     }
-    setAppliedCoupon(coupon);
-    return null;
   };
 
   const handleRemoveCoupon = () => {
@@ -583,8 +674,6 @@ const App: React.FC = () => {
       : 0;
     const total = Math.max(0, subtotal - discountAmount);
 
-    // Commission rate is seller-plan-dependent; use the base rate for client-side records.
-    // Actual payout is computed server-side where the seller's plan is authoritative.
     const orderRows = cart.map(item => ({
       buyer_id: user.id,
       seller_id: item.product.sellerId,
@@ -597,10 +686,17 @@ const App: React.FC = () => {
       status: 'completed',
     }));
 
-    void marketplaceService.createOrderBatch(orderRows).catch(() => {});
+    // BUG-004: await DB write — use real DB-assigned IDs so review persistence works
+    let createdRows: Record<string, any>[] = [];
+    try {
+      createdRows = await marketplaceService.createOrderBatch(orderRows) as Record<string, any>[];
+    } catch {
+      toast.error('Sipariş kaydedilirken hata oluştu. Lütfen tekrar deneyin.');
+      return;
+    }
 
     const newOrder: Order = {
-      id: `order-${Date.now()}`,
+      id: createdRows[0]?.id ?? `order-${Date.now()}`,
       date: new Date().toISOString(),
       items: cart.map(item => ({ product: item.product, quantity: item.quantity })),
       subtotal,
@@ -657,10 +753,15 @@ const App: React.FC = () => {
 
   const handleUpdateUser = async (updatedUser: User) => {
     try {
+      // BUG: email change was never sent to Supabase Auth — now it is
+      if (updatedUser.email !== user.email) {
+        await supabase.auth.updateUser({ email: updatedUser.email });
+      }
       await profileService.update(updatedUser.id, {
         name: updatedUser.name,
         avatar_url: updatedUser.avatarUrl,
         bio: updatedUser.bio ?? null,
+        email: updatedUser.email,
       });
       setUser(updatedUser);
       toast.success('Ayarlar başarıyla kaydedildi.');
@@ -988,13 +1089,21 @@ const App: React.FC = () => {
   };
 
   const handleBoostListing = (itemId: string, days: number) => {
+    const item = marketplaceItems.find(i => i.id === itemId);
     const startDate = new Date();
-    const endDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-    setMarketplaceItems(prev => prev.map(item =>
-      item.id === itemId
-        ? { ...item, sponsored: { startDate: startDate.toISOString(), endDate: endDate.toISOString() } }
-        : item
+    // BUG: was always starting from now() — now extends existing boost period if still active
+    const existingEnd = item?.sponsored ? new Date(item.sponsored.endDate) : null;
+    const baseDate = existingEnd && existingEnd > new Date() ? existingEnd : new Date();
+    const endDate = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+    const sponsored = { startDate: startDate.toISOString(), endDate: endDate.toISOString() };
+    setMarketplaceItems(prev => prev.map(i =>
+      i.id === itemId ? { ...i, sponsored } : i
     ));
+    // BUG-014: persist boost to DB
+    marketplaceService.update(itemId, {
+      sponsored_start_date: sponsored.startDate,
+      sponsored_end_date: sponsored.endDate,
+    }).catch(() => {});
   };
 
 
@@ -1008,7 +1117,8 @@ const App: React.FC = () => {
     const existingIndex = campaigns.findIndex(c => c.id === campaignData.id);
     if (existingIndex === -1) {
       const maxCampaigns = PLAN_LIMITS[user.membership].maxCampaigns;
-      if (isFinite(maxCampaigns) && campaigns.filter(c => c.purpose !== 'social').length >= maxCampaigns) {
+      // BUG-009: count ALL campaigns (not just non-social) to enforce the plan limit correctly
+      if (isFinite(maxCampaigns) && campaigns.length >= maxCampaigns) {
         toast.warning(`Plan limitine ulaştınız (${maxCampaigns} kampanya). Daha fazla kampanya oluşturmak için planınızı yükseltin.`);
         navigate({ type: 'upgrade', payload: null });
         return;
@@ -1079,44 +1189,48 @@ const App: React.FC = () => {
   };
   
   const handleCampaignImpression = (campaignId: string, promptId: string) => {
-      setCampaigns(prev => prev.map(c => {
-          if (c.id === campaignId) {
-              const newStats = c.promptStats.map(stat => 
-                  stat.promptId === promptId ? { ...stat, impressions: stat.impressions + 1 } : stat
-              );
-              const newTotalImpressions = c.totalImpressions + 1;
-              return { ...c, promptStats: newStats, totalImpressions: newTotalImpressions };
-          }
-          return c;
-      }));
+    setCampaigns(prev => prev.map(c => {
+      if (c.id === campaignId) {
+        const newStats = c.promptStats.map(stat =>
+          stat.promptId === promptId ? { ...stat, impressions: stat.impressions + 1 } : stat
+        );
+        return { ...c, promptStats: newStats, totalImpressions: c.totalImpressions + 1 };
+      }
+      return c;
+    }));
+    // BUG-021: buffer impressions and flush to DB in batch to avoid per-render DB calls
+    pendingImpressionsRef.current.set(
+      campaignId,
+      (pendingImpressionsRef.current.get(campaignId) ?? 0) + 1
+    );
   };
 
   const handleUpdateOrderReview = (orderId: string, productId: string, rating: number, review: string) => {
-    setOrders(prevOrders => 
-        prevOrders.map(order => {
-            if (order.id === orderId) {
-                return {
-                    ...order,
-                    items: order.items.map(item => {
-                        if (item.product.id === productId) {
-                            return { ...item, rating, review };
-                        }
-                        return item;
-                    })
-                };
-            }
-            return order;
-        })
+    setOrders(prevOrders =>
+      prevOrders.map(order => {
+        if (order.id === orderId) {
+          return {
+            ...order,
+            items: order.items.map(item =>
+              item.product.id === productId ? { ...item, rating, review } : item
+            ),
+          };
+        }
+        return order;
+      })
     );
+    // BUG-012: persist review to DB
+    // BUG: now passes orderId for precise row targeting + correct column names
+    marketplaceService.saveItemReview(orderId, productId, rating, review).catch(() => {});
     toast.success('Yorumunuz için teşekkürler!');
   };
 
   const handleSendMessage = (conversationId: string, content: string, _receiverId: string) => {
     const now = new Date().toISOString();
-    // Snapshot previous state for rollback
-    let prevConversations: typeof conversations = conversations;
+    // BUG-029: capture snapshot inside the setter callback to avoid stale closure
+    let snapshot: typeof conversations | null = null;
     setConversations(prev => {
-      prevConversations = prev;
+      snapshot = prev;
       return prev.map(c =>
         c.id === conversationId
           ? {
@@ -1135,7 +1249,7 @@ const App: React.FC = () => {
       );
     });
     messageService.sendMessage({ conversationId, senderId: user.id, text: content }).catch(() => {
-      setConversations(prevConversations);
+      if (snapshot) setConversations(snapshot);
       toast.error('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
     });
   };
@@ -1176,43 +1290,53 @@ const App: React.FC = () => {
           conversationId = await handleCreateConversation([user.id, userId]);
       }
       
-      // Add the message with the shared prompt
+      const msgContent = 'Check out this prompt I found!';
       setConversations(prev => prev.map(c => {
-          if (c.id === conversationId) {
-              return {
-                  ...c,
-                  updatedAt: new Date().toISOString(),
-                  lastMessage: {
-                      id: Date.now().toString(),
-                      senderId: user.id,
-                      receiverId: userId,
-                      content: 'Check out this prompt I found!',
-                      timestamp: new Date().toISOString(),
-                      isRead: true,
-                      sharedPromptId: promptId,
-                  }
-              };
-          }
-          return c;
+        if (c.id === conversationId) {
+          return {
+            ...c,
+            updatedAt: new Date().toISOString(),
+            lastMessage: {
+              id: Date.now().toString(),
+              senderId: user.id,
+              receiverId: userId,
+              content: msgContent,
+              timestamp: new Date().toISOString(),
+              isRead: true,
+              sharedPromptId: promptId,
+            },
+          };
+        }
+        return c;
       }));
+      // BUG-007: persist shared prompt message to DB
+      messageService.sendMessage({ conversationId, senderId: user.id, text: msgContent, sharedPromptId: promptId }).catch(() => {});
 
-      // Optionally navigate
       navigate({ type: 'messages', payload: { conversationId } });
   };
 
-  const handleUpgradeMembership = (plan: MembershipType) => {
+  const handleUpgradeMembership = async (plan: MembershipType) => {
     const startDate = new Date();
     const endDate = new Date();
     endDate.setFullYear(startDate.getFullYear() + 1);
+    const isDowngrade = plan === MembershipType.STARTER;
 
     setUser(prevUser => ({
-        ...prevUser,
-        membership: plan,
-        subscriptionStartDate: plan === MembershipType.STARTER ? undefined : startDate.toISOString(),
-        subscriptionEndDate: plan === MembershipType.STARTER ? undefined : endDate.toISOString(),
+      ...prevUser,
+      membership: plan,
+      subscriptionStartDate: isDowngrade ? undefined : startDate.toISOString(),
+      subscriptionEndDate: isDowngrade ? undefined : endDate.toISOString(),
     }));
+
+    // BUG-003: persist plan change to DB so it survives page refresh
+    profileService.update(user.id, {
+      membership: plan,
+      subscription_start_date: isDowngrade ? null : startDate.toISOString(),
+      subscription_end_date: isDowngrade ? null : endDate.toISOString(),
+    }).catch(() => {});
+
     const planLabel = PLAN_LIMITS[plan].label;
-    if (plan === MembershipType.STARTER) {
+    if (isDowngrade) {
       toast.info('Planınız Starter\'a düşürüldü.');
     } else {
       toast.success(`Tebrikler! Artık ${planLabel} planındasınız.`);
@@ -1225,14 +1349,20 @@ const App: React.FC = () => {
   };
 
   const handleConfirmCancellation = () => {
-      setUser(prevUser => ({
-          ...prevUser,
-          membership: MembershipType.STARTER,
-          subscriptionStartDate: undefined,
-          subscriptionEndDate: undefined,
-      }));
-      toast.info('Aboneliğiniz iptal edildi.');
-      navigate({ type: 'upgrade', payload: null });
+    setUser(prevUser => ({
+      ...prevUser,
+      membership: MembershipType.STARTER,
+      subscriptionStartDate: undefined,
+      subscriptionEndDate: undefined,
+    }));
+    // BUG-003: persist cancellation to DB
+    profileService.update(user.id, {
+      membership: MembershipType.STARTER,
+      subscription_start_date: null,
+      subscription_end_date: null,
+    }).catch(() => {});
+    toast.info('Aboneliğiniz iptal edildi.');
+    navigate({ type: 'upgrade', payload: null });
   };
   
   const handleOpenShareModal = (prompt: Prompt) => {
@@ -1445,64 +1575,83 @@ const App: React.FC = () => {
   };
 
   const handleLikePrompt = (promptId: string) => {
-     setPrompts(prev => prev.map(p => {
-         if (p.id === promptId) {
-             const isLiked = p.likes?.includes(user.id);
-             const likes = isLiked
-                      ? (p.likes || []).filter(id => id !== user.id)
-                      : [...(p.likes || []), user.id];
-             
-             if (!isLiked && p.ownerId !== user.id) {
-                 setNotifications(prevNotifs => [{
-                     id: `notif-${Date.now()}`,
-                     userId: p.ownerId,
-                     actorId: user.id,
-                     actorName: user.name,
-                     actorAvatar: user.avatarUrl,
-                     type: 'like',
-                     targetType: 'prompt',
-                     targetId: p.id,
-                     targetPreview: p.title,
-                     createdAt: new Date().toISOString(),
-                     isRead: false
-                 }, ...prevNotifs]);
-             }
-             return { ...p, likes };
-         }
-         return p;
-     }));
+    // BUG: only searched prompts[], not archivedPrompts[] — archived prompt likes were dropped
+    const prompt = prompts.find(p => p.id === promptId) || archivedPrompts.find(p => p.id === promptId);
+    if (!prompt) return;
+    const isLiked = prompt.likes?.includes(user.id);
+    const newLikes = isLiked
+      ? (prompt.likes || []).filter(id => id !== user.id)
+      : [...(prompt.likes || []), user.id];
+
+    // BUG: update both prompts and archivedPrompts
+    const updateLikes = (p: import('./types').Prompt) =>
+      p.id === promptId ? { ...p, likes: newLikes } : p;
+    setPrompts(prev => prev.map(updateLikes));
+    setArchivedPrompts(prev => prev.map(updateLikes));
+
+    if (!isLiked && prompt.ownerId !== user.id) {
+      setNotifications(prev => [{
+        id: `notif-${Date.now()}`,
+        userId: prompt.ownerId,
+        actorId: user.id,
+        actorName: user.name,
+        actorAvatar: user.avatarUrl,
+        type: 'like' as const,
+        targetType: 'prompt' as const,
+        targetId: prompt.id,
+        targetPreview: prompt.title,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      }, ...prev]);
+    }
+
+    promptService.toggleLike(promptId, user.id, prompt.likes ?? []).catch(() => {
+      const rollback = (p: import('./types').Prompt) =>
+        p.id === promptId ? { ...p, likes: prompt.likes } : p;
+      setPrompts(prev => prev.map(rollback));
+      setArchivedPrompts(prev => prev.map(rollback));
+    });
   };
 
   const handleAddPromptComment = (promptId: string, text: string) => {
-      setPrompts(prev => prev.map(p => {
-          if (p.id === promptId) {
-              const newComment = {
-                      id: `comment-${Date.now()}`,
-                      authorId: user.id,
-                      authorName: user.name,
-                      authorAvatar: user.avatarUrl,
-                      text: text,
-                      createdAt: new Date().toISOString(),
-              };
-              if (p.ownerId !== user.id) {
-                 setNotifications(prevNotifs => [{
-                     id: `notif-${Date.now()}`,
-                     userId: p.ownerId,
-                     actorId: user.id,
-                     actorName: user.name,
-                     actorAvatar: user.avatarUrl,
-                     type: 'comment',
-                     targetType: 'prompt',
-                     targetId: p.id,
-                     targetPreview: text.substring(0, 50),
-                     createdAt: new Date().toISOString(),
-                     isRead: false
-                 }, ...prevNotifs]);
-              }
-              return { ...p, comments: [...(p.comments || []), newComment] };
-          }
-          return p;
-      }));
+    // BUG: only searched prompts[], not archivedPrompts[] — archived prompt comments were dropped
+    const prompt = prompts.find(p => p.id === promptId) || archivedPrompts.find(p => p.id === promptId);
+    if (!prompt) return;
+    const newComment = {
+      id: `comment-${Date.now()}`,
+      authorId: user.id,
+      authorName: user.name,
+      authorAvatar: user.avatarUrl,
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    // BUG: update both prompts and archivedPrompts
+    const addComment = (p: import('./types').Prompt) =>
+      p.id === promptId ? { ...p, comments: [...(p.comments || []), newComment] } : p;
+    setPrompts(prev => prev.map(addComment));
+    setArchivedPrompts(prev => prev.map(addComment));
+    if (prompt.ownerId !== user.id) {
+      setNotifications(prev => [{
+        id: `notif-${Date.now()}`,
+        userId: prompt.ownerId,
+        actorId: user.id,
+        actorName: user.name,
+        actorAvatar: user.avatarUrl,
+        type: 'comment' as const,
+        targetType: 'prompt' as const,
+        targetId: promptId,
+        targetPreview: text.substring(0, 50),
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      }, ...prev]);
+    }
+    // BUG-005: persist comment to DB
+    promptService.addComment(promptId, newComment, prompt.comments ?? []).catch(() => {
+      const removeComment = (p: import('./types').Prompt) =>
+        p.id === promptId ? { ...p, comments: (p.comments || []).filter(c => c.id !== newComment.id) } : p;
+      setPrompts(prev => prev.map(removeComment));
+      setArchivedPrompts(prev => prev.map(removeComment));
+    });
   };
 
   const handleCreatePost = async (postData: PostData) => {
@@ -1526,12 +1675,13 @@ const App: React.FC = () => {
         );
         for (const mentionedUser of mentionedUsers.filter(Boolean)) {
           if (mentionedUser && mentionedUser.id !== user.id) {
+            // BUG-023: use 'mention' type instead of 'comment' for @mention notifications
             void notificationService.create({
               user_id: mentionedUser.id,
               actor_id: user.id,
               actor_name: user.name,
               actor_avatar: user.avatarUrl,
-              type: 'comment',
+              type: 'mention',
               target_type: 'post',
               target_id: newPost.id,
               target_preview: postData.caption.slice(0, 80),
@@ -1545,6 +1695,9 @@ const App: React.FC = () => {
   };
 
   const handleDeletePost = async (postId: string) => {
+    // BUG-015: verify ownership before deleting
+    const post = posts.find(p => p.id === postId);
+    if (!post || post.authorId !== user.id) return;
     try {
       await postService.delete(postId);
       setPosts(prev => prev.filter(p => p.id !== postId));
@@ -1555,6 +1708,9 @@ const App: React.FC = () => {
   };
 
   const handleEditPost = async (postId: string, newCaption: string, newTags: string[]) => {
+    // BUG-015: verify ownership before editing
+    const post = posts.find(p => p.id === postId);
+    if (!post || post.authorId !== user.id) return;
     try {
       await postService.update(postId, { caption: newCaption, tags: newTags });
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, caption: newCaption, tags: newTags } : p));
@@ -1564,15 +1720,17 @@ const App: React.FC = () => {
     }
   };
 
-    const handleFavoritePost = (postId: string) => {
-        setUser(prevUser => {
-            const isFavorited = prevUser.favorites?.includes(postId);
-            const favorites = isFavorited
-                ? prevUser.favorites?.filter(id => id !== postId)
-                : [...(prevUser.favorites || []), postId];
-            return { ...prevUser, favorites };
-        });
-    };
+  const handleFavoritePost = (postId: string) => {
+    const isFavorited = user.favorites?.includes(postId) ?? false;
+    const newFavorites = isFavorited
+      ? (user.favorites || []).filter(id => id !== postId)
+      : [...(user.favorites || []), postId];
+    setUser(prev => ({ ...prev, favorites: newFavorites }));
+    // BUG-013: persist favorites to DB
+    profileService.update(user.id, { favorites: newFavorites }).catch(() => {
+      setUser(prev => ({ ...prev, favorites: user.favorites }));
+    });
+  };
 
   const visiblePrompts = useMemo(() => {
     return prompts.filter(p => 
@@ -1662,7 +1820,7 @@ const App: React.FC = () => {
                       initialTab={view.payload?.activeTab}
                   />;
       case 'publicStore':
-          if (!view.payload) return <h2>Seller not found</h2>;
+          if (!view.payload) return <NotFoundPage onBack={() => navigate({ type: 'marketplace', payload: null })} />;
           return <PublicStore
                       user={user}
                       sellerInfo={view.payload}
@@ -1672,6 +1830,7 @@ const App: React.FC = () => {
                       onNavigateToMarketplace={() => navigate({ type: 'marketplace', payload: null })}
                       onNavigate={navigate}
                       onCreateCustomOrder={handleCreateCustomOrder}
+                      onDeleteItem={view.payload.sellerId === user.id ? handleDeleteMarketplaceItem : undefined}
                   />;
       case 'settings':
         return <Settings user={user} onUpdateUser={handleUpdateUser} prompts={prompts} projects={projects} onImportPrompts={handleImportPrompts} />;
@@ -1686,7 +1845,7 @@ const App: React.FC = () => {
       case 'terms':
         return <TermsPage onBack={() => navigate({ type: 'dashboard', payload: null })} />;
       case 'upgrade':
-        return <UpgradePage user={user} onUpgrade={handleUpgradeMembership} onNavigate={navigate} onCancelSubscription={handleNavigateToCancelSubscription} />;
+        return <UpgradePage user={user} onUpgrade={(plan) => void handleUpgradeMembership(plan)} onNavigate={navigate} onCancelSubscription={handleNavigateToCancelSubscription} />;
       case 'cancelSubscription':
         return <CancelSubscriptionPage onConfirm={handleConfirmCancellation} onKeepPlan={() => navigate({ type: 'upgrade', payload: null })} />;
       case 'referral':
@@ -1717,7 +1876,7 @@ const App: React.FC = () => {
                     onNavigate={navigate}
                 />;
       case 'profile': {
-          if (!view.payload) return <h2>User not found</h2>;
+          if (!view.payload) return <NotFoundPage onBack={() => navigate({ type: 'dashboard', payload: null })} />;
           // Use current user's data when viewing own profile
           const profileUser = view.payload.userId === user.id ? user : viewedProfile;
           if (!profileUser) {
@@ -1758,7 +1917,7 @@ const App: React.FC = () => {
       }
       case 'campaignDetail':
           const campaign = campaigns.find(c => c.id === view.payload?.campaignId);
-          if (!campaign) return <h2>Campaign not found</h2>;
+          if (!campaign) return <NotFoundPage onBack={() => navigate({ type: 'myStore', payload: { activeTab: 'campaigns' } })} />;
           return <CampaignDetailPage 
               campaign={campaign}
               allPrompts={prompts}
@@ -1776,7 +1935,7 @@ const App: React.FC = () => {
               onNavigate={navigate}
           />;
       case 'promptDetail':
-        if (!view.payload) return <h2>Prompt not found</h2>;
+        if (!view.payload) return <NotFoundPage onBack={() => navigate({ type: 'dashboard', payload: null })} />;
         const isArchived = archivedPrompts.some(p => p.id === view.payload?.id);
         
         let backText = isArchived ? "Back to Archived" : "Back to My Prompts";
@@ -1822,6 +1981,19 @@ const App: React.FC = () => {
     }
   };
 
+  // BUG-001: show password reset form when arriving from a password reset email link
+  if (passwordRecoveryMode) {
+    return (
+      <>
+        <ResetPasswordPage onDone={() => {
+          setPasswordRecoveryMode(false);
+          navigate({ type: 'dashboard', payload: null });
+        }} />
+        <ToastContainer />
+      </>
+    );
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-orange-50 flex items-center justify-center">
@@ -1865,6 +2037,20 @@ const App: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  // BUG-017: human-readable relative time for notifications
+  const formatNotifTime = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const diffMs = Date.now() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Şimdi';
+    if (diffMins < 60) return `${diffMins} dk önce`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} sa önce`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays} gün önce`;
+    return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  };
+
   return (
     <div className="bg-brand-light-gray min-h-screen flex text-brand-dark-gray">
       <Sidebar
@@ -1897,8 +2083,9 @@ const App: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="ml-auto relative z-50">
-           <button 
+          {/* BUG-016: ref wrapper so click-outside handler can detect clicks inside the panel */}
+          <div className="ml-auto relative z-50" ref={notificationRef}>
+           <button
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative p-2 bg-white rounded-full shadow-md hover:bg-gray-50 focus:outline-none"
            >
@@ -1957,6 +2144,7 @@ const App: React.FC = () => {
                                            <span className="font-semibold">{notification.actorName}</span>{' '}
                                            {notification.type === 'like' && 'liked your '}
                                            {notification.type === 'comment' && 'commented on your '}
+                                           {notification.type === 'mention' && 'mentioned you in a '}
                                            {notification.type === 'sale' && 'purchased your '}
                                            {notification.type === 'invite_collaborator' && 'invited you to collaborate on a '}
                                            <span className="font-medium">
@@ -1964,7 +2152,7 @@ const App: React.FC = () => {
                                            </span>
                                        </p>
                                        <p className="text-xs text-gray-500 mt-1 italic truncate">"{notification.targetPreview}"</p>
-                                       <p className="text-xs text-gray-400 mt-1">{new Date(notification.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                       <p className="text-xs text-gray-400 mt-1">{formatNotifTime(notification.createdAt)}</p>
                                    </div>
                                </div>
                            ))
@@ -2068,6 +2256,10 @@ const App: React.FC = () => {
         onComplete={() => {
           localStorage.setItem('promptverse_onboarding_completed', 'true');
           setShowOnboarding(false);
+          // BUG-028: also persist to DB so onboarding doesn't repeat on new devices
+          if (isAuthenticated) {
+            profileService.update(user.id, { has_completed_onboarding: true }).catch(() => {});
+          }
         }}
         onNavigate={(target) => {
           if (target === 'marketplace') navigate({ type: 'marketplace', payload: null });

@@ -10,7 +10,7 @@ interface CartProps {
   onUpdateQuantity: (itemId: string, newQuantity: number) => void;
   onCheckout: () => void;
   appliedCoupon: Coupon | null;
-  onApplyCoupon: (code: string) => string | null;
+  onApplyCoupon: (code: string) => Promise<string | null>;
   onRemoveCoupon: () => void;
 }
 
@@ -26,6 +26,7 @@ const Cart: React.FC<CartProps> = ({
   const { t } = useTranslation();
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -38,15 +39,21 @@ const Cart: React.FC<CartProps> = ({
 
   const total = Math.max(0, subtotal - discountAmount);
 
-  const handleApply = () => {
+  const handleApply = async () => {
     const trimmed = couponInput.trim().toUpperCase();
     if (!trimmed) return;
-    const error = onApplyCoupon(trimmed);
-    if (error) {
-      setCouponError(error);
-    } else {
-      setCouponError('');
-      setCouponInput('');
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const error = await onApplyCoupon(trimmed);
+      if (error) {
+        setCouponError(error);
+      } else {
+        setCouponError('');
+        setCouponInput('');
+      }
+    } finally {
+      setCouponLoading(false);
     }
   };
 
@@ -71,7 +78,10 @@ const Cart: React.FC<CartProps> = ({
               {cartItems.map(item => (
                 <li key={item.product.id} className="py-4 flex items-center justify-between">
                   <div className="flex items-center gap-4 flex-grow">
-                    <img src={item.product.coverImage} alt={item.product.title} className="w-20 h-16 rounded-md object-cover" />
+                    {item.product.coverImage
+                      ? <img src={item.product.coverImage} alt={item.product.title} className="w-20 h-16 rounded-md object-cover" />
+                      : <div className="w-20 h-16 rounded-md bg-gray-100 flex items-center justify-center text-2xl">📦</div>
+                    }
                     <div>
                       <h3 className="font-semibold">{item.product.title}</h3>
                       <p className="text-sm text-gray-500">{t('common.by')} {item.product.seller.name}</p>
@@ -144,16 +154,16 @@ const Cart: React.FC<CartProps> = ({
                     type="text"
                     value={couponInput}
                     onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleApply()}
+                    onKeyDown={(e) => e.key === 'Enter' && void handleApply()}
                     placeholder={t('cart.couponPlaceholder')}
                     className="flex-1 text-sm font-mono uppercase border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent tracking-widest placeholder:font-sans placeholder:normal-case placeholder:tracking-normal"
                   />
                   <button
-                    onClick={handleApply}
-                    disabled={!couponInput.trim()}
-                    className="px-4 py-2 bg-brand-orange text-white rounded-lg text-sm font-semibold hover:bg-orange-600 transition-colors disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    onClick={() => void handleApply()}
+                    disabled={!couponInput.trim() || couponLoading}
+                    className="px-4 py-2 bg-brand-orange text-white rounded-lg text-sm font-semibold hover:bg-orange-600 transition-colors disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed min-w-[80px]"
                   >
-                    {t('cart.applyCoupon')}
+                    {couponLoading ? '...' : t('cart.applyCoupon')}
                   </button>
                 </div>
                 {couponError && (

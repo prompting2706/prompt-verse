@@ -23,6 +23,7 @@ export const customOrderService = {
     title: string;
     description: string;
     budget: number;
+    deadline?: string;
     status?: string;
   }) {
     const { data, error } = await supabase
@@ -33,6 +34,7 @@ export const customOrderService = {
         title: order.title,
         description: order.description,
         budget: order.budget,
+        deadline: order.deadline ?? null,
         status: order.status ?? 'pending',
       } as any)
       .select(WITH_PROFILES)
@@ -41,10 +43,18 @@ export const customOrderService = {
     return data;
   },
 
-  async updateStatus(id: string, status: string) {
+  // BUG: agreedPrice and sellerNote were not persisted — now included in update
+  async updateStatus(id: string, status: string, extra?: { agreedPrice?: number; sellerNote?: string }) {
+    const updates: Record<string, unknown> = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+    if (extra?.agreedPrice !== undefined) updates.agreed_price = extra.agreedPrice;
+    if (extra?.sellerNote !== undefined) updates.seller_note = extra.sellerNote;
+
     const { data, error } = await supabase
       .from('custom_orders')
-      .update({ status, updated_at: new Date().toISOString() } as any)
+      .update(updates as any)
       .eq('id', id)
       .select(WITH_PROFILES)
       .single();

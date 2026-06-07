@@ -15,9 +15,9 @@ export function mapDbProfile(row: Row, email = ''): User {
     subscriptionStartDate: row.subscription_start_date ?? undefined,
     subscriptionEndDate: row.subscription_end_date ?? undefined,
     isPrivate: false,
-    followers: [],
+    followers: row.followers ?? [],
     following: row.following ?? [],
-    favorites: [],
+    favorites: row.favorites ?? [],
     referralCode: row.referral_code ?? undefined,
     verificationStatus: row.verification_status ?? 'none',
   };
@@ -76,7 +76,9 @@ export function mapDbMarketplaceItem(row: Row): MarketplaceItem {
     tags: row.tags ?? [],
     promptIds: row.prompt_ids ?? [],
     originalPrice: row.original_price ?? undefined,
-    sponsored: row.sponsored ?? undefined,
+    sponsored: row.sponsored_start_date
+      ? { startDate: row.sponsored_start_date, endDate: row.sponsored_end_date }
+      : (row.sponsored ?? undefined),
   };
 }
 

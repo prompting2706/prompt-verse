@@ -1,6 +1,7 @@
 
 
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type Prompt, type Project, OutputType, type User, PermissionLevel } from '../types';
 import { ArrowLeftIcon, ShareIcon, CopyIcon, EditIcon, TrashIcon, ArchiveIcon, CodeIcon, ImageIcon, VideoIcon, AudioIcon, UnarchiveIcon, FileIcon, CheckIcon } from './icons/Icons';
 import SocialShareModal from './SocialShareModal';
@@ -23,15 +24,16 @@ interface PromptDetailProps {
 }
 
 const PromptDetail: React.FC<PromptDetailProps> = ({ prompt, projects, user, onBack, onEdit, onDelete, onDuplicate, onArchive, onUnarchive, isArchived, backButtonText: customBackButtonText, onShareViaMessage, onShareAsPost }) => {
+  const { t } = useTranslation();
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [showShareModal, setShowShareModal] = useState(false);
 
-
+  // BUG: was hardcoded Turkish — now uses i18n keys
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      toast.success('Panoya kopyalandı!');
+      toast.success(t('toast.copied', 'Panoya kopyalandı!'));
     }).catch(() => {
-      toast.error('Kopyalama başarısız oldu.');
+      toast.error(t('toast.copyFailed', 'Kopyalama başarısız oldu.'));
     });
   };
 
@@ -282,11 +284,11 @@ const PromptDetail: React.FC<PromptDetailProps> = ({ prompt, projects, user, onB
             <div className="mt-8 pt-6 border-t border-gray-100">
               <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Version History & Audit Log</h3>
               <div className="space-y-3">
-                {prompt.versions && prompt.versions.length > 0 ? (
-                  prompt.versions.map((version, index) => (
+                {(prompt.versions ?? []).length > 0 ? (
+                  (prompt.versions ?? []).map((version, index) => (
                     <div key={version.id} className="text-sm bg-gray-50 p-3 rounded-md border border-gray-100 flex items-start gap-3">
                         <div className="bg-orange-100 text-orange-600 w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
-                            v{prompt.versions.length - index}
+                            v{(prompt.versions ?? []).length - index}
                         </div>
                         <div className="flex-1">
                             <p className="text-gray-900 font-medium font-mono text-xs mb-1 line-clamp-2" title={version.promptText}>

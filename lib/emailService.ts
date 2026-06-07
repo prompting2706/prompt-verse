@@ -14,9 +14,10 @@ async function authHeader(): Promise<Record<string, string>> {
 export const emailService = {
   async sendWelcomeEmail(email: string, name: string): Promise<void> {
     try {
+      const headers = await authHeader();
       await fetch('/api/welcome-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ email, name }),
       });
     } catch {

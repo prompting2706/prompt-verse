@@ -15,7 +15,8 @@ interface CreateCampaignPageProps {
 }
 
 const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onSave, onCancel, userPrompts, campaignToEdit, userId }) => {
-    const [purpose, setPurpose] = useState<'marketplace' | 'social'>('marketplace');
+    // BUG: was defaulting to 'marketplace' — Starter users would fill the form before getting an error at save
+    const [purpose, setPurpose] = useState<'marketplace' | 'social'>('social');
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [budget, setBudget] = useState(50);
@@ -105,6 +106,10 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onSave, onCance
         setError('');
         if (!name || !description || !creativeUrl || selectedPromptIds.length === 0) {
             setError('Please fill all fields, upload a creative, and select at least one prompt.');
+            return;
+        }
+        if (!budget || budget < 10) {
+            setError('Minimum bütçe $10 olmalıdır.');
             return;
         }
         if (!noEndDate && !endDate) {

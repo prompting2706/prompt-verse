@@ -28,6 +28,7 @@
     "@types/react-dom": "^19.2.3",
     "@vercel/node": "^5.1.8",
     "@vitejs/plugin-react": "^5.0.0",
+    "pg": "^8.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

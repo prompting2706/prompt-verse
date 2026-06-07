@@ -1,16 +1,10 @@
 
 
-import { type User, type Project, type Prompt, MembershipType, OutputType, type Order, type MarketplaceItem, PermissionLevel, type Post, type Campaign, type ReferralRecord, type Coupon, type CustomOrder, type Conversation } from './types';
+import { type User, type Project, type Prompt, MembershipType, OutputType, type Order, type MarketplaceItem, PermissionLevel, type Post, type Campaign, type ReferralRecord, type CustomOrder, type Conversation } from './types';
 
 export const MARKETPLACE_COMMISSION_RATE = 0.15;
 export const MIN_MARKETPLACE_PRICE = 3;
 
-export const MOCK_COUPONS: Coupon[] = [
-  { code: 'HOSGELDIN', type: 'percent', value: 20, minOrderAmount: 5, description: 'İlk alışverişe %20 indirim' },
-  { code: 'PROMPTVERSE10', type: 'fixed', value: 2, minOrderAmount: 10, description: '$2 indirim kuponu' },
-  { code: 'CREATOR50', type: 'percent', value: 50, description: 'Creator üyelerine özel %50 indirim' },
-  { code: 'BUNDLE5', type: 'fixed', value: 5, minOrderAmount: 20, description: 'Paket alışverişine $5 indirim' },
-];
 
 export interface SponsoredListingOption {
   id: string;
@@ -117,7 +111,7 @@ export const MOCK_USER: User = {
   email: 'alex.chroma@example.com',
   avatarUrl: 'https://picsum.photos/seed/user1/100/100',
   bio: 'AI enthusiast & prompt engineer. Crafting the future, one prompt at a time.',
-  membership: MembershipType.PRO,
+  membership: MembershipType.STARTER, // BUG: was PRO, caused plan checks to pass for unauthenticated users
   isPrivate: false,
   followers: ['user-2', 'user-3'],
   following: ['user-2'],

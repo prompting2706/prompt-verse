@@ -274,13 +274,18 @@ const MessagesView: React.FC<MessagesViewProps> = ({
     ? allConversations.filter((c) => {
         const pid = getParticipantId(c);
         if (!pid) return false;
+        // BUG: when profile not yet loaded, name is 'Unknown' — don't filter while loading
+        if (!searchQuery.trim()) return true;
         const info = getParticipantInfo(pid);
+        if (info.name === 'Unknown') return true; // profile still loading, keep visible
         return info.name.toLowerCase().includes(searchQuery.toLowerCase());
       }).sort((a, b) => new Date(getUpdatedAt(b)).getTime() - new Date(getUpdatedAt(a)).getTime())
     : mockConversations.filter((c) => {
         const pid = c.participantIds.find((id) => id !== currentUser.id);
         if (!pid) return true;
+        if (!searchQuery.trim()) return true;
         const info = getParticipantInfo(pid);
+        if (info.name === 'Unknown') return true;
         return info.name.toLowerCase().includes(searchQuery.toLowerCase());
       }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 

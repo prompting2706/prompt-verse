@@ -61,6 +61,16 @@ export const storageService = {
     return data.publicUrl;
   },
 
+  // BUG-008: upload prompt output files to storage instead of using blob URLs
+  async uploadPromptOutput(userId: string, file: File): Promise<string> {
+    const ext = file.name.split('.').pop() ?? 'bin';
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from('prompt-outputs').upload(path, file);
+    if (error) throw error;
+    const { data } = supabase.storage.from('prompt-outputs').getPublicUrl(path);
+    return data.publicUrl;
+  },
+
   async uploadAvatar(userId: string, file: File): Promise<string> {
     validateImageFile(file);
     const path = safePath(userId, file);

@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { XIcon } from './icons/Icons';
+import { toast } from '../utils/toast';
 
 interface AvatarCropModalProps {
   isOpen: boolean;
@@ -54,9 +55,16 @@ const AvatarCropModal: React.FC<AvatarCropModalProps> = ({ isOpen, onClose, onSa
 
   const onSelectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // BUG: file size was not validated despite UI showing "Maks 5 MB"
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Dosya boyutu 5 MB\'ı aşamaz.');
+        e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => setImgSrc(reader.result as string);
-      reader.readAsDataURL(e.target.files[0]);
+      reader.readAsDataURL(file);
     }
   };
 

@@ -146,8 +146,8 @@ const Orders: React.FC<OrdersProps> = ({ orders, onNavigateToMarketplace, onUpda
               </div>
               
               <ul className="divide-y divide-gray-200">
-                {order.items.map(item => (
-                  <OrderItem key={item.product.id} item={item} orderId={order.id} onUpdateReview={onUpdateReview} />
+                {order.items.map((item, idx) => (
+                  <OrderItem key={`${order.id}-${item.product.id}-${idx}`} item={item} orderId={order.id} onUpdateReview={onUpdateReview} />
                 ))}
               </ul>
             </div>

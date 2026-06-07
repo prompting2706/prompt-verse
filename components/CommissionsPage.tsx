@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { type CustomOrder, type CustomOrderStatus, type User } from '../types';
 import { CheckIcon, XIcon, ClipboardListIcon } from './icons/Icons';
+import { toast } from '../utils/toast';
 
 interface CommissionsPageProps {
   customOrders: CustomOrder[];
@@ -44,8 +45,14 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ customOrders, current
   const completedCount = customOrders.filter(o => o.status === 'completed' && (o.sellerId === currentUser.id || o.buyerId === currentUser.id)).length;
 
   const handleAcceptConfirm = (orderId: string, budget: number) => {
-    const price = parseFloat(acceptPrice) || budget;
-    onUpdateStatus(orderId, 'accepted', { agreedPrice: price, sellerNote: acceptNote.trim() || undefined });
+    const price = parseFloat(acceptPrice);
+    // BUG: zero or negative price was accepted; browser min attr is bypassable
+    if (acceptPrice !== '' && (isNaN(price) || price <= 0)) {
+      toast.error('Geçerli bir fiyat giriniz (0\'dan büyük olmalı).');
+      return;
+    }
+    const finalPrice = acceptPrice !== '' ? price : budget;
+    onUpdateStatus(orderId, 'accepted', { agreedPrice: finalPrice, sellerNote: acceptNote.trim() || undefined });
     setAcceptingId(null);
     setAcceptPrice('');
     setAcceptNote('');

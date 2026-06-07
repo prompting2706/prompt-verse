@@ -51,12 +51,13 @@ export const profileService = {
     return data;
   },
 
+  // BUG-018: search by both name and username
   async search(query: string) {
     if (!query.trim()) return [];
     const { data, error } = await supabase
       .from('profiles')
       .select('id, name, avatar_url')
-      .ilike('name', `%${query}%`)
+      .or(`name.ilike.%${query}%,username.ilike.%${query}%`)
       .limit(20);
     if (error) throw error;
     return data ?? [];
@@ -65,7 +66,7 @@ export const profileService = {
   async follow(currentUserId: string, targetUserId: string): Promise<void> {
     const profile = await profileService.getById(currentUserId);
     if (!profile) throw new Error('Profile not found');
-    const following: string[] = profile.following ?? [];
+    const following: string[] = (profile as any).following ?? [];
     const updated = following.includes(targetUserId)
       ? following.filter((id: string) => id !== targetUserId)
       : [...following, targetUserId];

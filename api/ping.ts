@@ -16,6 +16,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     return res.status(200).json({ ok: true, ts: new Date().toISOString() });
   } catch (err) {
     console.error('[ping] supabase error', err);
-    return res.status(500).json({ ok: false, error: String(err) });
+    // BUG: was leaking internal error details — now returns generic message
+    return res.status(500).json({ ok: false, error: 'Database check failed' });
   }
 }

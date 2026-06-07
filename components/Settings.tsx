@@ -30,6 +30,13 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, prompts, projec
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedAvatarFileRef = useRef<File | null>(null);
   const previewUrlRef = useRef<string | null>(null);
+  const submittingRef = useRef(false);
+
+  React.useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -48,6 +55,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, prompts, projec
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
 
     if (newPassword || confirmNewPassword) {
       if (newPassword.length < 8) {
@@ -60,6 +68,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, prompts, projec
       }
     }
 
+    submittingRef.current = true;
     setSaving(true);
     try {
       let finalAvatarUrl = avatarUrl;
@@ -82,6 +91,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, prompts, projec
       toast.error(message);
     } finally {
       setSaving(false);
+      submittingRef.current = false;
     }
   };
 
@@ -161,7 +171,9 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, prompts, projec
          const lines = text.split('\n');
          if (lines.length > 1) {
              const newPrompts = lines.slice(1).filter(l => l.trim()).map(line => {
-                const parts = line.split(',');
+                // BUG: simple split(',') breaks on quoted fields containing commas
+                const parts = (line.match(/(".*?"|[^",\n]+|(?<=,)(?=,))/g) ?? [])
+                  .map(f => f.replace(/^"|"$/g, '').replace(/""/g, '"'));
                 return {
                     id: `prompt-${Date.now()}-${Math.random()}`,
                     projectId: 'default',
@@ -406,6 +418,8 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser, prompts, projec
             type="button"
             onClick={() => {
               localStorage.removeItem('promptverse_onboarding_completed');
+              // BUG: DB flag was not reset — now cleared so other devices also show onboarding again
+              profileService.update(user.id, { has_completed_onboarding: false }).catch(() => {});
               window.location.reload();
             }}
             className="px-4 py-2 border border-orange-300 text-brand-orange rounded-lg text-sm font-medium hover:bg-orange-50 transition-colors"

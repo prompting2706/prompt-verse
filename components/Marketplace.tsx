@@ -96,9 +96,9 @@ const Marketplace: React.FC<MarketplaceProps> = ({ user, orders, items, campaign
 
   const processedItems = useMemo(() => {
     const sponsoredIds = new Set(sponsoredItems.map(i => i.id));
-    const baseItems = searchTerm || priceFilter !== 'any' || ratingFilter !== 0
-      ? items
-      : items.filter(item => !sponsoredIds.has(item.id));
+    // BUG: sponsored items appeared in both sponsored section AND search results
+    // Always exclude sponsored from processedItems — they have their own dedicated section
+    const baseItems = items.filter(item => !sponsoredIds.has(item.id));
 
     // If sorting by "Recommended" and no filters are active, use the recommendation service
     if (sortConfig.key === 'rating' && sortConfig.direction === 'desc' && !searchTerm && priceFilter === 'any' && ratingFilter === 0) {

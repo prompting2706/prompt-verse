@@ -31,7 +31,7 @@ const CustomOrderModal: React.FC<CustomOrderModalProps> = ({ buyer, seller, onSu
       title: title.trim(),
       description: description.trim(),
       budget: parseFloat(budget),
-      deadline: deadline ? new Date(deadline).toISOString() : undefined,
+      deadline: deadline ? new Date(deadline + 'T23:59:59').toISOString() : undefined,
       status: 'pending',
     });
     onClose();
@@ -79,6 +79,7 @@ const CustomOrderModal: React.FC<CustomOrderModalProps> = ({ buyer, seller, onSu
               onChange={e => setDescription(e.target.value)}
               placeholder="Ne istediğinizi detaylı açıklayın: stil, format, adet, özel gereksinimler..."
               rows={4}
+              maxLength={500}
               className="w-full text-sm border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent resize-none"
             />
             <p className="text-xs text-gray-400 mt-1">{description.length}/500 karakter</p>

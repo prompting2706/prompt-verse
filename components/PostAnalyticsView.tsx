@@ -107,7 +107,9 @@ const PostAnalyticsView: React.FC<PostAnalyticsViewProps> = ({ posts }) => {
             </div>
             <div>
               <p className="text-gray-500">En iyi gönderi</p>
-              <p className="font-bold text-gray-800 text-lg truncate">{sorted[0]?.caption?.slice(0, 30) ?? '—'}…</p>
+              <p className="font-bold text-gray-800 text-lg truncate">{
+                (() => { const c = sorted[0]?.caption ?? '—'; return c.length > 30 ? `${c.slice(0, 30)}…` : c; })()
+              }</p>
             </div>
             <div>
               <p className="text-gray-500">Toplam gönderi</p>

@@ -3,7 +3,8 @@ import { authService } from '../lib/auth';
 import { toast } from '../utils/toast';
 
 interface OAuthButtonsProps {
-  label?: string; // "Continue" or "Sign in" or "Sign up"
+  label?: string;
+  variant?: 'light' | 'dark';
 }
 
 const PROVIDERS = [
@@ -19,44 +20,32 @@ const PROVIDERS = [
       </svg>
     ),
   },
-  {
-    id: 'apple' as const,
-    name: 'Apple',
-    icon: (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09z"/>
-        <path d="M15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701z"/>
-      </svg>
-    ),
-  },
-  {
-    id: 'azure' as const,
-    name: 'Microsoft',
-    icon: (
-      <svg className="w-5 h-5" viewBox="0 0 24 24">
-        <path fill="#F25022" d="M1 1h10v10H1z"/>
-        <path fill="#7FBA00" d="M13 1h10v10H13z"/>
-        <path fill="#00A4EF" d="M1 13h10v10H1z"/>
-        <path fill="#FFB900" d="M13 13h10v10H13z"/>
-      </svg>
-    ),
-  },
 ] as const;
 
-const OAuthButtons: React.FC<OAuthButtonsProps> = ({ label = 'Continue' }) => {
+const OAuthButtons: React.FC<OAuthButtonsProps> = ({ label = 'Continue', variant = 'light' }) => {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
 
   const handleOAuth = async (provider: typeof PROVIDERS[number]['id']) => {
     setLoadingProvider(provider);
+    // Auto-reset after 15s in case user cancels the OAuth popup/redirect
+    const resetTimer = setTimeout(() => setLoadingProvider(null), 15000);
     try {
       await authService.signInWithOAuth(provider);
-      // Page will redirect — no need to reset loading state
     } catch (err) {
+      clearTimeout(resetTimer);
       setLoadingProvider(null);
       const message = err instanceof Error ? err.message : 'OAuth login failed';
       toast.error(message);
     }
   };
+
+  const btnClass = variant === 'dark'
+    ? 'w-full flex items-center justify-center gap-3 px-4 py-3 bg-white/5 border border-white/15 rounded-xl text-sm font-semibold text-white hover:bg-white/10 hover:border-white/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed'
+    : 'w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed';
+
+  const spinnerClass = variant === 'dark'
+    ? 'w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin'
+    : 'w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin';
 
   return (
     <div className="space-y-3">
@@ -66,13 +55,9 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ label = 'Continue' }) => {
           type="button"
           onClick={() => void handleOAuth(p.id)}
           disabled={loadingProvider !== null}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          className={btnClass}
         >
-          {loadingProvider === p.id ? (
-            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-          ) : (
-            p.icon
-          )}
+          {loadingProvider === p.id ? <div className={spinnerClass} /> : p.icon}
           <span>{loadingProvider === p.id ? 'Yönlendiriliyor...' : `${label} with ${p.name}`}</span>
         </button>
       ))}

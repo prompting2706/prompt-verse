@@ -136,7 +136,7 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ user, referrals }) => {
         <StatCard
           icon={<ChartBarIcon className="text-purple-500" />}
           label={t('referral.statsConversionRate')}
-          value={`%${conversionRate}`}
+          value={locale === 'tr-TR' ? `%${conversionRate}` : `${conversionRate}%`}
           bg="bg-purple-50"
         />
         <StatCard

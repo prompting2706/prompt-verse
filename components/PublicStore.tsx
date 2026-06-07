@@ -20,9 +20,10 @@ interface PublicStoreProps {
     onNavigateToMarketplace: () => void;
     onNavigate: (view: View) => void;
     onCreateCustomOrder: (order: Omit<CustomOrder, 'id' | 'createdAt' | 'updatedAt'>) => void;
+    onDeleteItem?: (itemId: string) => void;
 }
 
-const PublicStore: React.FC<PublicStoreProps> = ({ user, sellerInfo, items, onAddToCart, onViewStore, onNavigateToMarketplace, onNavigate, onCreateCustomOrder }) => {
+const PublicStore: React.FC<PublicStoreProps> = ({ user, sellerInfo, items, onAddToCart, onViewStore, onNavigateToMarketplace, onNavigate, onCreateCustomOrder, onDeleteItem }) => {
     const sellerItems = items.filter(item => item.sellerId === sellerInfo.sellerId);
     const [showCustomOrderModal, setShowCustomOrderModal] = useState(false);
     const isOwnStore = sellerInfo.sellerId === user.id;
@@ -77,7 +78,7 @@ const PublicStore: React.FC<PublicStoreProps> = ({ user, sellerInfo, items, onAd
                             item={item}
                             user={user}
                             onAddToCart={onAddToCart}
-                            onDeleteItem={() => {}}
+                            onDeleteItem={onDeleteItem ?? (() => {})}
                             onViewStore={onViewStore}
                         />
                     ))}
@@ -119,7 +120,10 @@ const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, user, onAddToCa
     return (
         <div className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow border border-gray-200 flex flex-col overflow-hidden group">
             <div className="relative">
-                <img src={item.coverImage} alt={item.title} className="w-full h-40 object-cover" />
+                {item.coverImage
+                  ? <img src={item.coverImage} alt={item.title} className="w-full h-40 object-cover" />
+                  : <div className="w-full h-40 bg-gray-100 flex items-center justify-center text-4xl">📦</div>
+                }
                 {item.type === 'collection' && (
                     <div className="absolute top-2 right-2 bg-brand-orange text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                         <CollectionIcon />

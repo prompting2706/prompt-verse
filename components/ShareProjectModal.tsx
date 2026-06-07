@@ -14,6 +14,8 @@ interface ShareProjectModalProps {
 
 const ShareProjectModal: React.FC<ShareProjectModalProps> = ({ isOpen, onClose, project, currentUser, onFindUserByEmail, onUpdateCollaborators }) => {
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState('');
+  // BUG: permission was hard-coded EDITOR — now user can choose
+  const [newCollaboratorPermission, setNewCollaboratorPermission] = useState<PermissionLevel>(PermissionLevel.EDITOR);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -46,7 +48,7 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({ isOpen, onClose, 
         userId: userToAdd.id,
         email: userToAdd.email,
         avatarUrl: userToAdd.avatarUrl,
-        permission: PermissionLevel.EDITOR,
+        permission: newCollaboratorPermission,
       };
 
       onUpdateCollaborators(project.id, [...project.collaborators, newCollaborator]);
@@ -76,15 +78,23 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({ isOpen, onClose, 
 
         <div className="p-6 space-y-4">
             <p className="text-sm text-gray-600">Invite others to view and edit this project and its prompts.</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
                 <input
                     type="email"
                     value={newCollaboratorEmail}
                     onChange={(e) => setNewCollaboratorEmail(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') void handleAddCollaborator(); }}
                     placeholder="Enter user email..."
-                    className="flex-grow w-full text-sm border-gray-300 rounded-md focus:ring-brand-orange focus:border-brand-orange"
+                    className="flex-grow min-w-0 text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-brand-orange focus:border-brand-orange focus:outline-none"
                 />
+                <select
+                    value={newCollaboratorPermission}
+                    onChange={(e) => setNewCollaboratorPermission(e.target.value as PermissionLevel)}
+                    className="text-sm border border-gray-300 rounded-md px-2 py-2 focus:ring-brand-orange focus:border-brand-orange focus:outline-none"
+                >
+                    <option value={PermissionLevel.EDITOR}>Editor</option>
+                    <option value={PermissionLevel.VIEWER}>Viewer</option>
+                </select>
                 <button
                     onClick={() => void handleAddCollaborator()}
                     disabled={loading}

@@ -82,26 +82,27 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete, o
     }, 220);
   }, [animating]);
 
-  const handleNext = () => {
+  // BUG: memoize with useCallback so keyboard handler always has fresh references
+  const handleNext = useCallback(() => {
     if (isLast) return;
     goTo(currentStep + 1, 'forward');
-  };
+  }, [isLast, currentStep, goTo]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (currentStep === 0) return;
     goTo(currentStep - 1, 'back');
-  };
+  }, [currentStep, goTo]);
 
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onComplete();
-      if (e.key === 'ArrowRight' && !isLast) handleNext();
-      if (e.key === 'ArrowLeft' && currentStep > 0) handleBack();
+      if (e.key === 'ArrowRight') handleNext();
+      if (e.key === 'ArrowLeft') handleBack();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, currentStep, isLast, onComplete]);
+  }, [isOpen, onComplete, handleNext, handleBack]);
 
   if (!isOpen) return null;
 

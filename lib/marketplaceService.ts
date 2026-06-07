@@ -3,6 +3,19 @@ import { supabase } from './supabase';
 const PAGE_SIZE = 24;
 
 export const marketplaceService = {
+  // BUG: marketplace was missing pagination — only first 24 items showed
+  async getAllItems(filters?: { tag?: string; minPrice?: number; maxPrice?: number }): Promise<Record<string, unknown>[]> {
+    const all: Record<string, unknown>[] = [];
+    let page = 0;
+    while (page < 50) {
+      const batch = await marketplaceService.getItems(page, filters);
+      all.push(...(batch as Record<string, unknown>[]));
+      if (batch.length < PAGE_SIZE) break;
+      page++;
+    }
+    return all;
+  },
+
   async getItems(page = 0, filters?: { tag?: string; minPrice?: number; maxPrice?: number }) {
     let query = supabase
       .from('marketplace_items')
@@ -25,7 +38,7 @@ export const marketplaceService = {
       .from('marketplace_items')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return data;
   },
@@ -102,5 +115,17 @@ export const marketplaceService = {
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data ?? [];
+  },
+
+  // BUG-012: persist order item reviews to DB
+  // BUG: was using wrong column names (rating/review → review_rating/review_text)
+  // BUG: was filtering by buyer_id+item_id — now uses orderId for precision
+  async saveItemReview(orderId: string, itemId: string, rating: number, review: string): Promise<void> {
+    const { error } = await supabase
+      .from('orders')
+      .update({ review_rating: rating, review_text: review } as any)
+      .eq('id', orderId)
+      .eq('item_id', itemId);
+    if (error) throw error;
   },
 };

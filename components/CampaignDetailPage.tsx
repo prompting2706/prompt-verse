@@ -79,14 +79,14 @@ const CampaignDetailPage: React.FC<CampaignDetailPageProps> = ({ campaign, allPr
         {/* Right Column - Stats */}
         <div className="lg:col-span-2 space-y-6">
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatCard title="Total Spent" value={`$${campaign.budget.toFixed(2)}`} icon={<DollarSignIcon className="text-orange-500" />} />
-                <StatCard title="Total Impressions" value={campaign.totalImpressions.toLocaleString()} icon={<EyeIcon className="text-blue-500" />} />
-                <StatCard title="Total Sales" value={campaign.totalSales.toLocaleString()} icon={<ShoppingCartIcon className="text-green-500" />} />
+                <StatCard title="Budget" value={`$${campaign.budget.toFixed(2)}`} icon={<DollarSignIcon className="text-orange-500" />} />
+                <StatCard title="Total Impressions" value={(campaign.totalImpressions ?? 0).toLocaleString()} icon={<EyeIcon className="text-blue-500" />} />
+                <StatCard title="Total Sales" value={(campaign.totalSales ?? 0).toLocaleString()} icon={<ShoppingCartIcon className="text-green-500" />} />
             </div>
             <div className="bg-white rounded-xl shadow-md border border-gray-200">
                  <h3 className="font-bold p-4 border-b">Per-Prompt Performance</h3>
                  <div className="divide-y divide-gray-200">
-                     {campaign.promptStats.map(stat => (
+                     {(campaign.promptStats ?? []).map(stat => (
                         <div key={stat.promptId} className="flex items-center justify-between p-4 hover:bg-gray-50">
                             <p className="font-semibold text-sm">{getPromptTitle(stat.promptId)}</p>
                             <div className="flex items-center gap-6 text-sm">

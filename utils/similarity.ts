@@ -3,6 +3,10 @@ export function calculateSimilarity(str1: string, str2: string): number {
     const s2 = str2.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (s1 === s2) return 100;
     if (s1.length === 0 || s2.length === 0) return 0;
+    // BUG: single-char strings produce zero bigrams → always 0% similarity; use substring fallback
+    if (s1.length === 1 || s2.length === 1) {
+      return s1.includes(s2) || s2.includes(s1) ? 50 : 0;
+    }
 
     const bigrams = (str: string) => {
         const bg = new Set<string>();

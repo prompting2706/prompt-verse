@@ -179,7 +179,8 @@ const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onCommen
                 </button>
                 <button
                     onClick={() => {
-                      navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#explore').then(() => {
+                      // BUG: was copying generic #explore URL; now copies post-specific deep link
+                      navigator.clipboard.writeText(window.location.origin + window.location.pathname + `#post/${post.id}`).then(() => {
                         toast.success('Link kopyalandı!');
                       }).catch(() => {
                         toast.info('Paylaşmak için linki kopyalayın.');
@@ -356,7 +357,8 @@ const PostItem: React.FC<PostItemProps> = ({ post, currentUser, onLike, onCommen
                     toast.error('Minimum bütçe $3 olmalıdır.');
                     return;
                   }
-                  toast.success(`Kampanya oluşturuldu! $${boostBudget} bütçeyle ${boostDuration} gün boyunca yayınlanacak. (Ödeme entegrasyonu yakında)`);
+                  // BUG: boost was silently doing nothing — now clearly marked as coming soon
+                  toast.info(`Bu özellik yakında geliyor! Ödeme entegrasyonu tamamlandığında $${boostBudget} bütçeyle ${boostDuration} gün boost aktif olacak.`);
                   setShowBoostModal(false);
                 }}
                 disabled={!boostBudget || parseFloat(boostBudget) < 3}

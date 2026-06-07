@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
-import { escapeHtml, EMAIL_RE } from './_auth';
+import { requireAuth, escapeHtml, EMAIL_RE } from './_auth';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -11,6 +11,11 @@ const APP_URL = process.env.APP_URL ?? 'https://promptverse.app';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // BUG: endpoint had no auth — anyone could send emails in PromptVerse's name
+  if (!(await requireAuth(req))) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const { email, name } = req.body as { email?: string; name?: string };
